@@ -1,4 +1,8 @@
 *.o
+*.class
+*.cache
+target/
+*.zip
 *~
 G*
 TAGS
