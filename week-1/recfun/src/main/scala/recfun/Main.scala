@@ -47,13 +47,13 @@ object Main {
    *
    * A recursive function which returns true of string represented by
    * chars has balanced paranthesis: eg. (())() or ()()
-   * 
+   *
    */
     def balance(chars: List[Char]): Boolean = {
 
       def balance_r(chars:List[Char], open: Int): Boolean = {
         chars match {
-          case Nil => if (open == 0) true else false
+          case Nil => (open == 0)
           case c::rest => {
             c match {
               case '(' => balance_r(rest, open + 1)
@@ -71,18 +71,30 @@ object Main {
 
 
   /**
-   * Total number of ways to make change is take a max-coin and
-   * count number of ways to make change without it
-   * 
    * Exercise 3
    */
     def countChange(money: Int, coins: List[Int]): Int = {
-      
-      def countChange_r(money:Int, coins: List[Int] ):Int = {
-        0
-      } 
-      0
-    }
 
+      def countChange_r(money:Int, coins: List[Int]): Int = {
+        if(money == 0) {
+          1
+        } else if (money > 0 && coins.isEmpty) {
+          0
+        } else {
+          if( money < coins.head ) {
+            countChange_r( money , coins.tail)
+          } else {
+            countChange_r( money - coins.head , coins) + countChange_r(money,coins.tail)
+          }
+        }
+      }
+
+      if (money  == 0 ) {
+        0
+      } else {
+        val coinDec = coins.sortBy((x:Int) => -x)
+        countChange_r(money, coinDec)
+      }
+    }
 
   }
