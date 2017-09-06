@@ -46,7 +46,7 @@ object Lists {
       if (xs.tail.length == 0) {
          xs.head
       } else {
-        def tmax = max(xs.tail)
+        val tmax = max(xs.tail)
         if (xs.head > tmax) xs.head  else tmax
       }
     }

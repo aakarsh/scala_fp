@@ -22,7 +22,7 @@ import org.scalatest.junit.JUnitRunner
  *
  * - Start the sbt console and run the "test" command
  * - Right-click this file in eclipse and chose "Run As" - "JUnit Test"
- */
+o*/
  @RunWith(classOf[JUnitRunner])
   class ListsSuite extends FunSuite {
  
