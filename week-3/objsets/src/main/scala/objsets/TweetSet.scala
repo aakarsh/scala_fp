@@ -3,6 +3,26 @@ package objsets
 import java.util.NoSuchElementException
 import TweetReader._
 
+
+object Common {
+
+  def merge[T](l1: List[T], l2: List[T], compare:(T,T) => Boolean ): List[T] = {
+
+    if (l1.isEmpty)      { l2 }
+    else if (l2.isEmpty) { l1 }
+    else {
+      val h1 = l1.head
+      val h2 = l2.head
+
+      if(compare(h1,h2))
+        h1::merge(l1.tail,l2,compare)
+      else
+        h2::merge(l1,l2.tail,compare)
+    }
+  }
+
+}
+
 /**
  * A class to represent tweets.
  */
@@ -33,7 +53,6 @@ class Tweet(val user: String, val text: String, val retweets: Int) {
  *
  * [1] http://en.wikipedia.org/wiki/Binary_search_tree
  */
-
 abstract class TweetSet {
 
   /**
@@ -160,48 +179,34 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
     val l1 = this.toList()
     val l2 = that.toList()
 
-    def merge(l1: List[Tweet], l2: List[Tweet]): List[Tweet] = {
-      if(l1.isEmpty) l2
-      else if (l2.isEmpty) l1
-      else {
-        val h1 = l1.head
-        val h2 = l2.head
+    def cmp(a:Tweet,b:Tweet) : Boolean = a.text < b.text
 
-        if(h1.text > h2.text)
-          h1::merge(l1.tail,l2)
-        else
-          h2::merge(l1,l2.tail)
-      }
-    }
+    val mergedArray = Common.merge(l1.toList,l2.toList,cmp).toArray
 
-    val mergedArray = merge(l1.toList,l2.toList).toArray
+    def buildTree_r(start:Int, end:Int, sorted: Array[Tweet] ) : TweetSet = {
 
-    println("mergedArray: "+mergedArray)
-
-    def buildTree_r(start:Int, end:Int, sorted:Array[Tweet] ) : TweetSet = {
-
-      println("buildTree(start: "+start+" , end: " + end +" )"+ " middle "+ (start+end)/2 )
-
-      if( end < start || end < 0 || start > sorted.length ) {
-
-        println(">>Empty")
-
+      if( end < start || end < 0 || start > (sorted.length-1) ) {
         new Empty
+      } else if ( start == end ) {
 
-      } else if (start == end) {
-        new NonEmpty(sorted(start),new Empty,new Empty)
+        new NonEmpty(sorted(start) , new Empty , new Empty )
+
+      } else if (Math.abs(start - end) == 1 )  {
+        val s = new NonEmpty(sorted(start),new Empty,new Empty)
+        new NonEmpty(sorted(end),s ,new Empty)
       } else {
         val middle = ( start + end ) / 2
-        val elem = sorted(middle)
-        new NonEmpty(elem,buildTree_r(0,middle-1,sorted), buildTree_r(middle+1,end,sorted))
+        val left  = buildTree_r(0, middle - 1,    sorted)
+        val right = buildTree_r(middle + 1 , end, sorted)
+
+        new NonEmpty(sorted(middle),left,right)
       }
     }
 
-    def buildTree(sorted:Array[Tweet]): TweetSet = 
-      buildTree_r(0,sorted.length,sorted)
+    def buildTree(sorted:Array[Tweet]): TweetSet =
+      buildTree_r(0,sorted.length-1,sorted)
 
     buildTree(mergedArray)
-
   }
 
 
@@ -210,6 +215,7 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
     val rs = this.right.toList
     (ls:::(elem::rs)).toList
   }
+
 
   def filterAcc(p: Tweet => Boolean, acc: TweetSet): TweetSet = {
 
@@ -294,6 +300,7 @@ object Nil extends TweetList {
   def isEmpty = true
 
 }
+
 
 class Cons(val head: Tweet, val tail: TweetList) extends TweetList {
   def isEmpty = false
