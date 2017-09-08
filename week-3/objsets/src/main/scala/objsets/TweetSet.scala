@@ -1,13 +1,12 @@
 package objsets
 
 import java.util.NoSuchElementException
-import TweetReader._
 
+import TweetReader._
 
 object Common {
 
   def merge[T](l1: List[T], l2: List[T], compare:(T,T) => Boolean ): List[T] = {
-
     if (l1.isEmpty)      { l2 }
     else if (l2.isEmpty) { l1 }
     else {
@@ -62,7 +61,7 @@ abstract class TweetSet {
    * Question: Can we implment this method here, or should it remain
    * abstract and be implemented in the subclasses?
    */
-  def filter(p: Tweet => Boolean): TweetSet = ???
+  def filter(p: Tweet => Boolean): TweetSet = filterAcc(p,new Empty)
 
   /**
    * This is a helper method for `filter` that propagetes the
@@ -77,7 +76,7 @@ abstract class TweetSet {
    * and be implemented in the subclasses?
    *
    */
-    def union(that: TweetSet): TweetSet
+  def union(that: TweetSet): TweetSet
 
 
   /**
@@ -89,20 +88,26 @@ abstract class TweetSet {
    * Question: Should we implment this method here, or should it remain abstract
    * and be implemented in the subclasses?
    */
-    def mostRetweeted: Tweet
+  def mostRetweeted: Tweet
 
 
   /**
-   * Returns a list containing all tweets of this set, sorted by retweet count
-   * in descending order. In other words, the head of the resulting list should
-   * have the highest retweet count.
+   * Returns a list containing all tweets of this set, sorted by
+   * retweet count in descending order. In other words, the head of
+   * the resulting list should have the highest retweet count.
    *
    * Hint: the method `remove` on TweetSet will be very useful.
-   * Question: Should we implment this method here, or should it remain abstract
-   * and be implemented in the subclasses?
-   *
+   * Question: Should we implment this method here, or should it
+   * remain abstract and be implemented in the subclasses?
    */
-    def descendingByRetweet: TweetList = ???
+  def descendingByRetweet: TweetList = {
+    val tweet = this.mostRetweeted
+    val smaller = this.remove(tweet)
+    if (smaller.isEmpty)
+      Nil
+    else
+      new Cons(tweet,smaller.descendingByRetweet)
+  }
 
   /**
    * The following methods are already implemented
@@ -155,6 +160,8 @@ class Empty extends TweetSet {
    override def mostRetweeted: Tweet =
      throw new NoSuchElementException()
 
+
+
   /**
    * The following methods are already implemented
    */
@@ -174,15 +181,21 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
 
   override def isEmpty: Boolean = false
 
+  def makeLeaf(elem: Tweet): TweetSet =
+    new NonEmpty(elem , new Empty , new Empty )
+
+
+
+
   override def union(that: TweetSet): TweetSet = {
 
     def buildTree_r(start:Int, end:Int, sorted: Array[Tweet] ) : TweetSet = {
       if( end < start || end < 0 || start > (sorted.length-1) ) {
         new Empty
       } else if ( start == end ) {
-        new NonEmpty(sorted(start) , new Empty , new Empty )
+        makeLeaf(sorted(start))
       } else if (Math.abs(start - end) == 1 )  {
-        val s = new NonEmpty(sorted(start) , new Empty, new Empty)
+        val s = makeLeaf(sorted(start))
         new NonEmpty(sorted(end),s ,new Empty)
       } else {
 
@@ -195,16 +208,17 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
     }
 
     def buildTree(sorted:Array[Tweet]): TweetSet =
-      buildTree_r(0,sorted.length-1,sorted)
+      buildTree_r(0, sorted.length - 1 ,sorted)
 
+    import Common.merge
 
-    def cmp(a:Tweet,b:Tweet) : Boolean = a.text < b.text
+    def cmp(a:Tweet,b:Tweet) : Boolean =
+      a.text < b.text
 
-    val mergedArray = Common.merge(this.toList,that.toList,cmp).toArray
+    val mergedArray = merge( this.toList, that.toList, cmp).toArray
 
     buildTree(mergedArray)
   }
-
 
   def toList(): List[Tweet] = {
     val ls = this.left.toList
@@ -212,32 +226,38 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
     (ls:::(elem::rs)).toList
   }
 
-
   def filterAcc(p: Tweet => Boolean, acc: TweetSet): TweetSet = {
-
-    /**
     val l = left.filterAcc(p,acc)
-    val r = right.filterAcc(p,acc)
-
-    if (!p(elem))
-      l.union(right)
-    else
-      NonEmpty(elem,l,r)
-      */
-
-    acc
+    val v = if (p(elem)) l.incl(elem) else l
+    right.filterAcc(p,v)
   }
-
+  
   /**
-   * Empty sets have no retweets.
+   *
    */
    override def mostRetweeted: Tweet = {
-     val cnt =  elem.retweets
 
-     val lt = this.left.mostRetweeted
-     val rt = this.right.mostRetweeted
+     def optional(e: TweetSet): Option[Tweet] = {
+       if(e.isEmpty) None
+       else Some(e.mostRetweeted)
+     }
 
-     elem
+     def max(l:Option[Tweet],r:Option[Tweet]): Option[Tweet] = {
+       l match {
+         case None => r
+         case Some(le) => {
+           r match {
+             case None => l
+             case Some(re) => if (le.retweets > re.retweets) l else r
+           }
+         }
+       }
+     }
+
+     val lt = optional(this.left)
+     val rt = optional(this.right)
+
+     max(max(lt,rt),Some(elem)).getOrElse(elem)
    }
 
   /**
@@ -255,8 +275,10 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
   }
 
   def remove(tw: Tweet): TweetSet =
-    if (tw.text < elem.text) new NonEmpty(elem, left.remove(tw), right)
-    else if (elem.text < tw.text) new NonEmpty(elem, left, right.remove(tw))
+    if (tw.text < elem.text)
+      new NonEmpty(elem, left.remove(tw), right)
+    else if (elem.text < tw.text)
+           new NonEmpty(elem, left, right.remove(tw))
     else left.union(right)
 
   /**
@@ -283,6 +305,10 @@ trait TweetList {
       tail.foreach(f)
     }
 
+  def toList() : List[Tweet];
+
+  def reverse(): TweetList;
+
 }
 
 object Nil extends TweetList {
@@ -293,29 +319,67 @@ object Nil extends TweetList {
   def tail =
       throw new NoSuchElementException("tail of EmptyList")
 
+  override def reverse(): TweetList = this
+
+  override def toList() : List[Tweet] = List[Tweet]()
+
   def isEmpty = true
 
 }
 
-
 class Cons(val head: Tweet, val tail: TweetList) extends TweetList {
+
   def isEmpty = false
+
+  override def toList() : List[Tweet] = {
+    if(tail.isEmpty)
+      List[Tweet](head)
+    else
+      head::(tail.toList())
+  }
+ 
+  override def reverse(): TweetList = {
+    val r = this.toList().reverse
+
+    def fromList(ls : List[Tweet]): TweetList = {
+      if(ls.isEmpty) Nil
+      else new Cons(ls.head,objsets.Nil)
+    }
+
+    fromList(r)
+  }
+
 }
 
 
 object GoogleVsApple {
 
   val google = List("android", "Android", "galaxy", "Galaxy", "nexus", "Nexus")
-  val apple = List("ios", "iOS", "iphone", "iPhone", "ipad", "iPad")
+  val apple  = List("ios", "iOS", "iphone", "iPhone", "ipad", "iPad")
 
-  lazy val googleTweets: TweetSet = ???
-  lazy val appleTweets: TweetSet = ???
+  def text_contains(text:String, keywords: List[String]): Boolean = 
+    if(keywords.isEmpty) false
+    else if(text.contains(keywords.head)) true
+    else text_contains(text,keywords.tail)
+         
+    
+  
+  lazy val googleTweets: TweetSet = 
+    TweetReader.allTweets.filter((tweet:Tweet) => text_contains(tweet.text,google))
+
+
+  lazy val appleTweets: TweetSet = 
+    TweetReader.allTweets.filter((tweet:Tweet) => text_contains(tweet.text,apple))
+  
 
   /**
-   * A list of all tweets mentioning a keyword from either apple or google,
-   * sorted by the number of retweets.
+   * A list of all tweets mentioning a keyword from either apple or
+   * google, sorted by the number of retweets.
    */
-  lazy val trending: TweetList = ???
+
+  lazy val trending: TweetList = 
+    // lots of wondeful out of memory exceptions on 8Gb machine
+    googleTweets.union(appleTweets).descendingByRetweet
 
 }
 
