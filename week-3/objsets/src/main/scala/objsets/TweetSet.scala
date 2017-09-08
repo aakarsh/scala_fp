@@ -176,25 +176,16 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
 
   override def union(that: TweetSet): TweetSet = {
 
-    val l1 = this.toList()
-    val l2 = that.toList()
-
-    def cmp(a:Tweet,b:Tweet) : Boolean = a.text < b.text
-
-    val mergedArray = Common.merge(l1.toList,l2.toList,cmp).toArray
-
     def buildTree_r(start:Int, end:Int, sorted: Array[Tweet] ) : TweetSet = {
-
       if( end < start || end < 0 || start > (sorted.length-1) ) {
         new Empty
       } else if ( start == end ) {
-
         new NonEmpty(sorted(start) , new Empty , new Empty )
-
       } else if (Math.abs(start - end) == 1 )  {
-        val s = new NonEmpty(sorted(start),new Empty,new Empty)
+        val s = new NonEmpty(sorted(start) , new Empty, new Empty)
         new NonEmpty(sorted(end),s ,new Empty)
       } else {
+
         val middle = ( start + end ) / 2
         val left  = buildTree_r(0, middle - 1,    sorted)
         val right = buildTree_r(middle + 1 , end, sorted)
@@ -205,6 +196,11 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
 
     def buildTree(sorted:Array[Tweet]): TweetSet =
       buildTree_r(0,sorted.length-1,sorted)
+
+
+    def cmp(a:Tweet,b:Tweet) : Boolean = a.text < b.text
+
+    val mergedArray = Common.merge(this.toList,that.toList,cmp).toArray
 
     buildTree(mergedArray)
   }
