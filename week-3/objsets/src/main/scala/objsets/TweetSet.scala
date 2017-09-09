@@ -1,12 +1,18 @@
 package objsets
 
 import java.util.NoSuchElementException
-
+import scala.reflect.ClassTag
+import scala.reflect.Manifest
 import TweetReader._
 
 object Common {
 
-  def merge[T](l1: List[T], l2: List[T], compare:(T,T) => Boolean ): List[T] = {
+
+  /**
+   * Insead of recursive merge we may need non-recursive merge
+   * // TODO : Needs to be tail recursive 
+   */
+  def merge_r[T](l1: List[T], l2: List[T], compare:(T,T) => Boolean ): List[T] = {
     if (l1.isEmpty)      { l2 }
     else if (l2.isEmpty) { l1 }
     else {
@@ -14,12 +20,26 @@ object Common {
       val h2 = l2.head
 
       if(compare(h1,h2))
-        h1::merge(l1.tail,l2,compare)
+        h1::merge_r(l1.tail,l2,compare)
       else
-        h2::merge(l1,l2.tail,compare)
+        h2::merge_r(l1,l2.tail,compare)
     }
   }
 
+  def dedup_r[T](prev_head:T, t:List[T], acc:List[T]) : List[T] = {
+    if(t.isEmpty) acc
+    else if (prev_head == t.head) {
+      dedup_r(prev_head, t.tail, acc)
+    } else // append head
+      dedup_r(t.head,t.tail,t.head::acc)
+  }
+
+  def dedup[T](t:List[T]) : List[T] = {
+    if(t.isEmpty) List[T]()
+    else  
+      dedup_r(t.head, t.tail, t.head::List[T]()).reverse
+  }
+  
 }
 
 /**
@@ -27,6 +47,14 @@ object Common {
  */
 class Tweet(val user: String, val text: String, val retweets: Int) {
 
+  override def equals(other: Any) : Boolean = 
+    other match {
+      case that: Tweet =>  {
+        (user == that.user) && (text == that.text) && (retweets == that.retweets)
+      }
+      case _ => false
+    }
+  
   override def toString: String =
     "User: " + user + "\n" +
     "Text: " + text + " [" + retweets + "]"
@@ -101,11 +129,13 @@ abstract class TweetSet {
    * remain abstract and be implemented in the subclasses?
    */
   def descendingByRetweet: TweetList = {
+
     val tweet = this.mostRetweeted
     val smaller = this.remove(tweet)
     if (smaller.isEmpty)
       Nil
     else
+      // TODO: Fix stackoverflow here
       new Cons(tweet,smaller.descendingByRetweet)
   }
 
@@ -139,10 +169,14 @@ abstract class TweetSet {
 
   def isEmpty: Boolean
 
+  def size: Int;
+
   /**
    * Create a sorted list by doing a lvr ordering of the list.
    */
   def toList(): List[Tweet]
+
+  def toListAcc(acc:List[Tweet]) : List[Tweet]
 
 }
 
@@ -154,13 +188,14 @@ class Empty extends TweetSet {
 
   def filterAcc(p: Tweet => Boolean, acc: TweetSet): TweetSet = acc
 
+
+  def size: Int = 0
+
   /**
    * Empty sets have no retweets.
    */
    override def mostRetweeted: Tweet =
      throw new NoSuchElementException()
-
-
 
   /**
    * The following methods are already implemented
@@ -175,6 +210,8 @@ class Empty extends TweetSet {
 
   def toList(): List[Tweet] = List[Tweet]()
 
+  override def toListAcc(acc:List[Tweet]): List[Tweet] = acc
+
 }
 
 class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
@@ -184,46 +221,92 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
   def makeLeaf(elem: Tweet): TweetSet =
     new NonEmpty(elem , new Empty , new Empty )
 
+  def merge(l1:List[Tweet], l2:List[Tweet], compare:(Tweet,Tweet) => Boolean)  : List[Tweet]  = {
+
+    var a1 =  l1.toArray
+    var a2 =  l2.toArray
+
+    val n = l1.size + l2.size
+
+    var merged = new Array[Tweet](n)
+    var p1 = 0
+    var p2 = 0
+    var i  = 0
+
+    while(i < Math.min(p1,p2)) {
+      var h1 = a1(p1)
+      var h2 = a2(p2)
+
+      if(compare(h1,h2)) {
+        merged(i) = h1
+        p1 += 1
+        i+=1
+      } else{
+        merged(i) = h2
+        p2 += 1
+        i+=1
+      }
+
+    }
+
+    while(p1 < a1.size) {
+      merged(i) = a1(p1)
+      i+=1
+      p1+=1
+    }
+
+    while(p2 < a2.size) {
+      merged(i) = a2(p2)
+      i+=1
+      p2+=1
+    }
+    merged.toList
+  }
 
 
-
+  // TODO: Need to reduce excessive memory consumption here
   override def union(that: TweetSet): TweetSet = {
 
-    def buildTree_r(start:Int, end:Int, sorted: Array[Tweet] ) : TweetSet = {
+    def buildTree_r(start:Int, end:Int,
+                    sorted: Array[Tweet], depth: Int ) : TweetSet = {
+
       if( end < start || end < 0 || start > (sorted.length-1) ) {
         new Empty
       } else if ( start == end ) {
         makeLeaf(sorted(start))
-      } else if (Math.abs(start - end) == 1 )  {
+      } else if (Math.abs( start - end ) == 1 )  {
         val s = makeLeaf(sorted(start))
         new NonEmpty(sorted(end),s ,new Empty)
       } else {
-
-        val middle = ( start + end ) / 2
-        val left  = buildTree_r(0, middle - 1,    sorted)
-        val right = buildTree_r(middle + 1 , end, sorted)
-
+        val middle = (start + end) / 2
+        val left  = buildTree_r(start       ,   middle - 1,    sorted, depth+1)
+        val right = buildTree_r(middle + 1, end     ,      sorted, depth+1)
         new NonEmpty(sorted(middle),left,right)
       }
     }
 
     def buildTree(sorted:Array[Tweet]): TweetSet =
-      buildTree_r(0, sorted.length - 1 ,sorted)
+      buildTree_r(0, sorted.length - 1 ,sorted,0)
 
-    import Common.merge
+    def cmp(a:Tweet,b:Tweet):Boolean = a.text <= b.text
 
-    def cmp(a:Tweet,b:Tweet) : Boolean =
-      a.text < b.text
+    import Common._
 
-    val mergedArray = merge( this.toList, that.toList, cmp).toArray
+    val mergedArray = dedup(merge(this.toList, that.toList, cmp)).toArray
 
     buildTree(mergedArray)
+
+  }
+
+  override def toListAcc(acc:List[Tweet]): List[Tweet] = {
+    val leftList  = this.left.toListAcc(this.elem :: acc)
+    val finalList = this.right.toListAcc(leftList)
+    finalList
   }
 
   def toList(): List[Tweet] = {
-    val ls = this.left.toList
-    val rs = this.right.toList
-    (ls:::(elem::rs)).toList
+    val l  = this.toListAcc(List[Tweet]())
+    l.reverse
   }
 
   def filterAcc(p: Tweet => Boolean, acc: TweetSet): TweetSet = {
@@ -231,7 +314,7 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
     val v = if (p(elem)) l.incl(elem) else l
     right.filterAcc(p,v)
   }
-  
+
   /**
    *
    */
@@ -259,6 +342,8 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
 
      max(max(lt,rt),Some(elem)).getOrElse(elem)
    }
+
+
 
   /**
    * The following methods are already implemented
@@ -289,6 +374,8 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
     left.foreach(f)
     right.foreach(f)
   }
+
+  def size: Int = this.left.size + 1  + this.right.size
 
 }
 
@@ -323,6 +410,8 @@ object Nil extends TweetList {
 
   override def toList() : List[Tweet] = List[Tweet]()
 
+
+
   def isEmpty = true
 
 }
@@ -337,7 +426,7 @@ class Cons(val head: Tweet, val tail: TweetList) extends TweetList {
     else
       head::(tail.toList())
   }
- 
+
   override def reverse(): TweetList = {
     val r = this.toList().reverse
 
@@ -357,27 +446,27 @@ object GoogleVsApple {
   val google = List("android", "Android", "galaxy", "Galaxy", "nexus", "Nexus")
   val apple  = List("ios", "iOS", "iphone", "iPhone", "ipad", "iPad")
 
-  def text_contains(text:String, keywords: List[String]): Boolean = 
+  def text_contains(text:String, keywords: List[String]): Boolean =
     if(keywords.isEmpty) false
     else if(text.contains(keywords.head)) true
     else text_contains(text,keywords.tail)
-         
-    
-  
-  lazy val googleTweets: TweetSet = 
+
+
+
+  lazy val googleTweets: TweetSet =
     TweetReader.allTweets.filter((tweet:Tweet) => text_contains(tweet.text,google))
 
 
-  lazy val appleTweets: TweetSet = 
+  lazy val appleTweets: TweetSet =
     TweetReader.allTweets.filter((tweet:Tweet) => text_contains(tweet.text,apple))
-  
+
 
   /**
    * A list of all tweets mentioning a keyword from either apple or
    * google, sorted by the number of retweets.
    */
 
-  lazy val trending: TweetList = 
+  lazy val trending: TweetList =
     // lots of wondeful out of memory exceptions on 8Gb machine
     googleTweets.union(appleTweets).descendingByRetweet
 

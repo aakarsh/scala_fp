@@ -75,4 +75,5 @@ object TweetReader {
     else unionOfAllTweetSets(curSets.tail, acc.union(curSets.head))
 
   val allTweets: TweetSet = unionOfAllTweetSets(tweetSets, new Empty)
+
 }
