@@ -9,6 +9,7 @@ import org.scalatest.junit.JUnitRunner
 @RunWith(classOf[JUnitRunner])
 class TweetSetSuite extends FunSuite {
   trait TestSets {
+
     val set1 = new Empty
     val set2 = set1.incl(new Tweet("a", "a body", 20))
     val set3 = set2.incl(new Tweet("b", "b body", 20))
@@ -18,7 +19,8 @@ class TweetSetSuite extends FunSuite {
 
     val set4c = set3.incl(c) // a,b,c
     val set4d = set3.incl(d) // a,b,d
-    val set5 = set4c.incl(d) // a,b,c,d
+    val set5  = set4c.incl(d) // a,b,c,d
+
   }
 
   def asSet(tweets: TweetSet): Set[Tweet] = {
@@ -77,7 +79,7 @@ class TweetSetSuite extends FunSuite {
   }
 
   test("heavy load") {
-    val n = 10000
+    val n = 100000
     var foo  = new Array[Tweet](n)
     for(i <- 0 to n-1) {
       foo(i) = new Tweet("foo-twat","foo:tweet---"+i,i)

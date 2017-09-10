@@ -10,34 +10,39 @@ object Common {
 
   /**
    * Insead of recursive merge we may need non-recursive merge
-   * // TODO : Needs to be tail recursive 
    */
-  def merge_r[T](l1: List[T], l2: List[T], compare:(T,T) => Boolean ): List[T] = {
-    if (l1.isEmpty)      { l2 }
-    else if (l2.isEmpty) { l1 }
-    else {
-      val h1 = l1.head
-      val h2 = l2.head
+  def merge[T](l1: List[T], l2: List[T], compare:(T,T) => Boolean) : List[T] = {
 
-      if(compare(h1,h2))
-        h1::merge_r(l1.tail,l2,compare)
-      else
-        h2::merge_r(l1,l2.tail,compare)
+    def merge_r[T](res:List[T],l1: List[T], l2: List[T], compare:(T,T) => Boolean ): List[T] = {
+      if (l1.isEmpty)      { l2:::res }
+      else if (l2.isEmpty) { l1:::res }
+      else {
+        val h1 = l1.head
+        val h2 = l2.head
+
+        if(compare(h1,h2)) {
+          merge_r(h1::res,l1.tail,l2,compare)
+        } else {
+          merge_r(h2::res,l1,l2.tail,compare)
+        }
+      }
     }
-  }
-
-  def dedup_r[T](prev_head:T, t:List[T], acc:List[T]) : List[T] = {
-    if(t.isEmpty) acc
-    else if (prev_head == t.head) {
-      dedup_r(prev_head, t.tail, acc)
-    } else // append head
-      dedup_r(t.head,t.tail,t.head::acc)
+    merge_r(List[T](),l1,l2,compare).reverse
   }
 
   def dedup[T](t:List[T]) : List[T] = {
+
+    def dedup_r[T](acc:List[T],prev_head:T, t: List[T] ) : List[T] = {
+      if(t.isEmpty) acc
+      else if (prev_head == t.head) {
+        dedup_r(acc,prev_head, t.tail)
+      } else // append head
+        dedup_r(t.head::acc,t.head, t.tail)
+    }
+
     if(t.isEmpty) List[T]()
-    else  
-      dedup_r(t.head, t.tail, t.head::List[T]()).reverse
+    else dedup_r(t.head::List[T](),t.head, t.tail ).reverse
+
   }
   
 }
@@ -127,16 +132,33 @@ abstract class TweetSet {
    * Hint: the method `remove` on TweetSet will be very useful.
    * Question: Should we implment this method here, or should it
    * remain abstract and be implemented in the subclasses?
+   * 
+   * TODO: Fix stackoverflow here
    */
-  def descendingByRetweet: TweetList = {
-
-    val tweet = this.mostRetweeted
-    val smaller = this.remove(tweet)
-    if (smaller.isEmpty)
+  def descendingByRetweet() : TweetList = {
+    if(this.isEmpty) 
       Nil
-    else
-      // TODO: Fix stackoverflow here
-      new Cons(tweet,smaller.descendingByRetweet)
+    else {
+
+      def descendingByRetweet_r( s: TweetSet, acc: List[Tweet] ) : List[Tweet] = {
+        if(s.isEmpty) acc
+        else {
+          val tweet = s.mostRetweeted
+          descendingByRetweet_r(s.remove(tweet), tweet::acc)
+        }
+      }
+
+      val result = descendingByRetweet_r(this, List[Tweet]())
+      val ls = result.reverse
+
+      def fl (ls:List[Tweet],acc: TweetList) : TweetList = {
+        if(ls.isEmpty) acc
+        else fl(ls.tail,new Cons(ls.head, acc))
+      }
+
+      fl(ls,Nil).reverse
+    }    
+
   }
 
   /**
@@ -220,49 +242,6 @@ class NonEmpty(elem: Tweet, left: TweetSet, right: TweetSet) extends TweetSet {
 
   def makeLeaf(elem: Tweet): TweetSet =
     new NonEmpty(elem , new Empty , new Empty )
-
-  def merge(l1:List[Tweet], l2:List[Tweet], compare:(Tweet,Tweet) => Boolean)  : List[Tweet]  = {
-
-    var a1 =  l1.toArray
-    var a2 =  l2.toArray
-
-    val n = l1.size + l2.size
-
-    var merged = new Array[Tweet](n)
-    var p1 = 0
-    var p2 = 0
-    var i  = 0
-
-    while(i < Math.min(p1,p2)) {
-      var h1 = a1(p1)
-      var h2 = a2(p2)
-
-      if(compare(h1,h2)) {
-        merged(i) = h1
-        p1 += 1
-        i+=1
-      } else{
-        merged(i) = h2
-        p2 += 1
-        i+=1
-      }
-
-    }
-
-    while(p1 < a1.size) {
-      merged(i) = a1(p1)
-      i+=1
-      p1+=1
-    }
-
-    while(p2 < a2.size) {
-      merged(i) = a2(p2)
-      i+=1
-      p2+=1
-    }
-    merged.toList
-  }
-
 
   // TODO: Need to reduce excessive memory consumption here
   override def union(that: TweetSet): TweetSet = {
@@ -394,6 +373,8 @@ trait TweetList {
 
   def toList() : List[Tweet];
 
+
+
   def reverse(): TweetList;
 
 }
@@ -406,7 +387,7 @@ object Nil extends TweetList {
   def tail =
       throw new NoSuchElementException("tail of EmptyList")
 
-  override def reverse(): TweetList = this
+  override def reverse(): TweetList = Nil
 
   override def toList() : List[Tweet] = List[Tweet]()
 
@@ -428,14 +409,16 @@ class Cons(val head: Tweet, val tail: TweetList) extends TweetList {
   }
 
   override def reverse(): TweetList = {
-    val r = this.toList().reverse
 
-    def fromList(ls : List[Tweet]): TweetList = {
-      if(ls.isEmpty) Nil
-      else new Cons(ls.head,objsets.Nil)
+    def reverse_r(ts:TweetList,acc:TweetList): TweetList = {
+      ts match{
+        case Nil => acc
+        case pair:Cons => 
+          reverse_r(pair.tail,new Cons(pair.head,acc))
+      }      
     }
 
-    fromList(r)
+    reverse_r(this,Nil)
   }
 
 }
