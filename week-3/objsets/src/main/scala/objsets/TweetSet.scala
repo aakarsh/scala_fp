@@ -27,6 +27,7 @@ object Common {
         }
       }
     }
+
     merge_r(List[T](),l1,l2,compare).reverse
   }
 
