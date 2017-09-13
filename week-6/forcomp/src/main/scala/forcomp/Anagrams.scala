@@ -114,16 +114,13 @@ object Anagrams {
    *  Note that the order of the occurrence list subsets does not
    *  matter -- the subsets in the example above could have been
    *  displayed in some other order.
+   *
+   * Takes a list of occurences and generates all subsets
+   * of the given list of occurences.
+   *
+   * type Occurrences = List[(Char, Int)]
    */
-  def combinations (occurrences: Occurrences): List[Occurrences] = {
-    /**
-     * Takes a list of occurences and generates all subsets
-     * of the given list of occurences.
-     *
-     * type Occurrences = List[(Char, Int)]
-     *
-     */
-    def combinations_r (occurrences: Occurrences) : List[Occurrences] =
+  def combinations (occurrences: Occurrences): List[Occurrences] = 
       occurrences match {
         case Nil   => List[Occurrences]()
         // cs - is list of occurences
@@ -131,12 +128,13 @@ object Anagrams {
 
           val letterOccurance =  for(i <- 0 to freq ) yield (letter, i)
 
-          val subCombinations = combinations_r(cs)
+          val subCombinations = combinations(cs)
+
           val retval =
             subCombinations match {
               case Nil => {
                 letterOccurance.map({
-                  case (letter,0) => List()
+                  case (letter,0)    => List() // The absense of a letter is the presense of is absense
                   case (letter,freq) => List((letter,freq))
                 })
               }
@@ -147,15 +145,14 @@ object Anagrams {
                 }
                 yield elem match {
                   case (letter,0) => subList
-                  case elem => elem::subList
+                  case elem       => elem::subList
                 }
               }
             }
           retval.toList
         }
       }
-    combinations_r(occurrences)
-  }
+
 
   /**
    * Subtracts occurrence list `y` from occurrence list `x`.
@@ -169,7 +166,7 @@ object Anagrams {
    *  and has no zero-entries.
    */
   def subtract(x: Occurrences, y: Occurrences): Occurrences = ???
-
+  
   /** Returns a list of all anagram sentences of the given sentence.
    *
    *  An anagram of a sentence is formed by taking the occurrences of all the characters of
