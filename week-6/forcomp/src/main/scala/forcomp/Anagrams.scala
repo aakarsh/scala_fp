@@ -22,49 +22,83 @@ object Anagrams {
    */
   type Occurrences = List[(Char, Int)]
 
-  /** The dictionary is simply a sequence of words.
-   *  It is predefined and obtained as a sequence using the utility method `loadDictionary`.
+  def Occurrences(xs:(Char,Int)*) = List[(Char,Int)](xs:_*)
+
+  /**
+   * The dictionary is simply a sequence of words.  It is predefined
+   * and obtained as a sequence using the utility method
+   * `loadDictionary`.
    */
   val dictionary: List[Word] = loadDictionary
 
-  /** Converts the word into its character occurrence list.
+  /**
+   * Converts the word into its character occurrence list.
    *
-   *  Note: the uppercase and lowercase version of the character are treated as the
-   *  same character, and are represented as a lowercase character in the occurrence list.
+   * Note: the uppercase and lowercase version of the character are
+   * treated as the same character, and are represented as a lowercase
+   * character in the occurrence list.
    *
-   *  Note: you must use `groupBy` to implement this method!
+   * Note: you must use `groupBy` to implement this method!
+   *
    */
-  def wordOccurrences(w: Word): Occurrences = ???
+  def wordOccurrences(w: Word): Occurrences = {
+    val groupedChars   = w.toLowerCase.sorted.groupBy(_.toChar)
+    val freqMap = groupedChars.map({ case (char:Char, repetitions:String) => (char , repetitions.length)} )
+    val retList = freqMap.toList
+    retList.sortBy({case (a,b) => a})
+  }
 
   /** Converts a sentence into its character occurrence list. */
-  def sentenceOccurrences(s: Sentence): Occurrences = ???
+  def sentenceOccurrences(s: Sentence): Occurrences = s.flatMap(wordOccurrences)
 
-  /** The `dictionaryByOccurrences` is a `Map` from different occurrences to a sequence of all
-   *  the words that have that occurrence count.
-   *  This map serves as an easy way to obtain all the anagrams of a word given its occurrence list.
+  /**
+   *  The `dictionaryByOccurrences` is a `Map` from different
+   *  occurrences to a sequence of all the words that have that
+   *  occurrence count.  This map serves as an easy way to obtain all
+   *  the anagrams of a word given its occurrence list.
    *
-   *  For example, the word "eat" has the following character occurrence list:
+   *  For example, the word "eat" has the following character
+   *  occurrence list:
    *
-   *     `List(('a', 1), ('e', 1), ('t', 1))`
+   *  `List(('a', 1), ('e', 1), ('t', 1))`
    *
    *  Incidentally, so do the words "ate" and "tea".
    *
-   *  This means that the `dictionaryByOccurrences` map will contain an entry:
+   *  This means that the `dictionaryByOccurrences` map will contain
+   *  an entry:
    *
-   *    List(('a', 1), ('e', 1), ('t', 1)) -> Seq("ate", "eat", "tea")
+   *  List(('a', 1), ('e', 1), ('t', 1)) -> Seq("ate", "eat", "tea")
    *
    */
-  lazy val dictionaryByOccurrences: Map[Occurrences, List[Word]] = ???
+  lazy val dictionaryByOccurrences: Map[Occurrences, List[Word]] = {
+    def addWords(res : Map[Occurrences, List[Word]], words: List[Word]) : Map[Occurrences, List[Word]] = words match {
+      case Nil => res
+      case word::words =>  {
+        val occ = wordOccurrences(word)
+        res.get(occ) match {
+          case Some(words:List[Word]) => (res - occ) + (occ -> (word::words))
+          case None => res + (occ -> List(word))
+        }
+      }
+    }
+    addWords(Map[Occurrences, List[Word]](), dictionary)
+  }
 
-  /** Returns all the anagrams of a given word. */
-  def wordAnagrams(word: Word): List[Word] = ???
+  /**
+   * Returns all the anagrams of a given word.
+   */
+  def wordAnagrams(word: Word): List[Word] = dictionaryByOccurrences(wordOccurrences(word))
 
-  /** Returns the list of all subsets of the occurrence list.
-   *  This includes the occurrence itself, i.e. `List(('k', 1), ('o', 1))`
-   *  is a subset of `List(('k', 1), ('o', 1))`.
-   *  It also include the empty subset `List()`.
+  /**
+   * Returns the list of all subsets of the occurrence list.
    *
-   *  Example: the subsets of the occurrence list `List(('a', 2), ('b', 2))` are:
+   * This includes the occurrence itself, i.e. `List(('k', 1), ('o', 1))`
+   * is a subset of `List(('k', 1), ('o', 1))`.
+   *
+   * It also include the empty subset `List()`.
+   *
+   * Example: the subsets of the occurrence list `List(('a', 2), ('b', 2))`
+   * are:
    *
    *    List(
    *      List(),
@@ -75,15 +109,56 @@ object Anagrams {
    *      List(('a', 2), ('b', 1)),
    *      List(('b', 2)),
    *      List(('a', 1), ('b', 2)),
-   *      List(('a', 2), ('b', 2))
-   *    )
+   *      List(('a', 2), ('b', 2)))
    *
-   *  Note that the order of the occurrence list subsets does not matter -- the subsets
-   *  in the example above could have been displayed in some other order.
+   *  Note that the order of the occurrence list subsets does not
+   *  matter -- the subsets in the example above could have been
+   *  displayed in some other order.
    */
-  def combinations(occurrences: Occurrences): List[Occurrences] = ???
+  def combinations (occurrences: Occurrences): List[Occurrences] = {
+    /**
+     * Takes a list of occurences and generates all subsets
+     * of the given list of occurences.
+     *
+     * type Occurrences = List[(Char, Int)]
+     *
+     */
+    def combinations_r (occurrences: Occurrences) : List[Occurrences] =
+      occurrences match {
+        case Nil   => List[Occurrences]()
+        // cs - is list of occurences
+        case (letter : Char, freq : Int) :: cs => {
 
-  /** Subtracts occurrence list `y` from occurrence list `x`.
+          val letterOccurance =  for(i <- 0 to freq ) yield (letter, i)
+
+          val subCombinations = combinations_r(cs)
+          val retval =
+            subCombinations match {
+              case Nil => {
+                letterOccurance.map({
+                  case (letter,0) => List()
+                  case (letter,freq) => List((letter,freq))
+                })
+              }
+              case sub => {
+                for {
+                  elem    <- letterOccurance
+                  subList <- sub
+                }
+                yield elem match {
+                  case (letter,0) => subList
+                  case elem => elem::subList
+                }
+              }
+            }
+          retval.toList
+        }
+      }
+    combinations_r(occurrences)
+  }
+
+  /**
+   * Subtracts occurrence list `y` from occurrence list `x`.
    *
    *  The precondition is that the occurrence list `y` is a subset of
    *  the occurrence list `x` -- any character appearing in `y` must
@@ -136,4 +211,5 @@ object Anagrams {
    *  Note: There is only one anagram of an empty sentence.
    */
   def sentenceAnagrams(sentence: Sentence): List[Sentence] = ???
+
 }
