@@ -97,7 +97,9 @@ class AnagramsSuite extends FunSuite  {
       List("rulez", "Linux"),
       List("Linux", "rulez")
     )
-    assert(sentenceAnagrams(sentence).toSet === anas.toSet)
+    val anagrams = sentenceAnagrams(sentence).toSet
+    anagrams.foreach(println)
+    assert(anagrams === anas.toSet)
   }
 
 }
