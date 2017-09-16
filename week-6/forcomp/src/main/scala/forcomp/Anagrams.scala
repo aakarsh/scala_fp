@@ -266,46 +266,74 @@ object Anagrams {
     def frequency (occ:Occurrence) : Int = occ match { case (_,frequency) => frequency  }
     def total_size(occList: List[Occurrence]): Int = occList.map(frequency).sum
     def sentence_length(words : List[Word]): Int = words.map(_.length).sum
+    def hasAnagrams (occ: Occurrences) : Boolean = dictionaryByOccurrences.contains(occ)
 
     def anagrams(occList : Occurrences) : List[Sentence]= {
+
       occList match {
+
         case Nil => List[Sentence](List[Word]())
+
         case occList => {
 
-          val occHeads:List[Occurrences] = combinations(occList).filter(occ => dictionaryByOccurrences.contains(occ))
+          val occHeads:List[Occurrences] = combinations(occList).filter(hasAnagrams)
 
           /**
-           * Each element is the list of anagrams of a head occurance
+           * Tail list is the remaing part for a combination of occHead list. 
            */
-          val headAnagrams : List[Word] = 
-            occHeads.flatMap(occ => dictionaryByOccurrences(occ))
+          val occTails:List[Occurrences] = occHeads.map(occHead => subtract(occList,occHead))
 
           /**
-           * Each tail element is a list of anagrams of a particular tail occurance
+           * For every possible occurance combination which has an
+           * anagram. We collect a list of these anagarams. For example.
+           * [[(a,1)(e,1),(p,1)],...] -> [[(ape),..],...]
+           * Thus each occuerence list gets transformed to a word list of anagrams.
            */
-          val occTails:List[Occurrences] = 
-            occHeads.map(occHead => subtract(occList,occHead))
+          val headAnagrams : List[List[Word]] = occHeads.map(dictionaryByOccurrences)
 
-          val tailAnagrams : List[Sentence] = occTails.flatMap(anagrams)
+          /**
+           * Each tail list gets mapped to a corresponding set of
+           * anagram sentences corresponding to the particular tail
+           * list.
+           *
+           */
+          val tailAnagrams : List[List[Sentence]] = occTails.map(anagrams)
 
+          /**
+          * Thus for each combination we have list of head_anagrams
+          * and a sentences of tail anagrams.
+          */
+          // zip the head anagrams with their coressponding tail anagrams
+          val headWithTail = headAnagrams.zip(tailAnagrams) 
 
-          val product:List[Sentence] = product_preppend(headAnagrams, tailAnagrams)
-          var s:List[Sentence]  = (product.toSet).toList
+          //Once we have producted to produce sentences, flattened
+          // we need to consider flatMaps
+          val headTailProduct:List[Sentence] = headWithTail.flatMap(
+            {case (head: List[Word], tail: List[Sentence] ) => product_preppend(head,tail) })
 
+          var s:List[Sentence]  = (headTailProduct.toSet).toList
 
-          val length = total_size(occList)
-          
+          val length = total_size(occList)          
+
           //product
-          s = s.filter((s:Sentence)  => sentence_length(s) == length)
-          s
-          
+          //s = s.filter((s:Sentence)  => sentence_length(s) == length)
+          //println("length: "+length+" occ "+occList+" s:"+s)
+          s          
         }
       }
     }
 
-    var sentences2 : List[Sentence] = anagrams(letterOccurences).filter((s:Sentence) => sentence_length(s) == total_size(letterOccurences))
+
+    var sentences2 : List[Sentence] = anagrams(letterOccurences)
+
+    println(sentences2)
+
+    sentences2 = sentences2.filter((s:Sentence) => sentence_length(s) == total_size(letterOccurences))
+
     sentences2 = sentences2.sortBy(x => x.toString)
+
     sentences2.foreach(println)
+
     //println("sentences:" + sentences2)
     // Need a list of sentences but getting a list of words
     sentences2
