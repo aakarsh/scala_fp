@@ -26,6 +26,8 @@ object Anagrams {
 
   def Occurrences(xs:(Char,Int)*) = List[(Char,Int)](xs:_*)
 
+  val emptyOccerrences = List[Occurrence]()
+
   /**
    * The dictionary is simply a sequence of words.  It is predefined
    * and obtained as a sequence using the utility method
@@ -50,12 +52,9 @@ object Anagrams {
   }
 
   /** Converts a sentence into its character occurrence list. */
-  def sentenceOccurrences(s: Sentence): Occurrences = {
-    val wo  = s.map(wordOccurrences)
-    val empty = List[Occurrence]()
-    wo.foldLeft(empty){(z:Occurrences,f:Occurrences) => addOccurences(z,f)}
-
-  }
+  def sentenceOccurrences(sentence: Sentence): Occurrences = 
+    sentence.map(wordOccurrences).foldLeft(emptyOccerrences)(addOccurrences)
+  
 
   /**
    *  The `dictionaryByOccurrences` is a `Map` from different
@@ -176,7 +175,7 @@ object Anagrams {
    *  and has no zero-entries.
    *
    */
-  def subtract(x: Occurrences, y: Occurrences): Occurrences = {
+  def subtractOccurrences(x: Occurrences, y: Occurrences): Occurrences = {
 
     val y_freq = y.toMap
 
@@ -190,10 +189,11 @@ object Anagrams {
       occ match { case (letter,x_freq) => (letter, x_freq - y_freq.getOrElse(letter,0)) }
 
     x.toMap.map(sub).toList.sortBy(letter).filter(positive_frequency)
+
   }
 
 
-  def addOccurences(x: Occurrences, y: Occurrences): Occurrences = {
+  def addOccurrences(x: Occurrences, y: Occurrences): Occurrences = {
 
     val y_freq = y.toMap
 
@@ -307,7 +307,7 @@ object Anagrams {
           /**
            * Tail list is the remaing part for a combination of occHead list.
            */
-          val occTails:List[Occurrences] = occHeads.map(occHead => subtract(occList,occHead))
+          val occTails:List[Occurrences] = occHeads.map(occHead => subtractOccurrences(occList,occHead))
 
           /**
            * For every possible occurance combination which has an
@@ -339,37 +339,18 @@ object Anagrams {
           def skip(word:Word) :Boolean   = word.isEmpty()
           def wrap(word:Word):List[Word] = List[Word](word)
 
-          val headTailProduct:List[Sentence] = headWithTail.flatMap(
+          val productSentences:List[Sentence] = headWithTail.flatMap(
             {case (head: List[Word], tail: List[Sentence] ) => product_preppend(head,tail,wrap, skip) })
 
-          var s:List[Sentence]  = (headTailProduct.toSet).toList
+          productSentences.toSet.toList
 
-          val length = total_size(occList)
-
-          //product
-          //s = s.filter((s:Sentence)  => sentence_length(s) == length)
-          //println("length: "+length+" occ "+occList+" s:"+s)
-
-          s
         }
       }
     }
 
+    def matchSentenceLength(s:Sentence) : Boolean = sentence_length(s) == total_size(letterOccurences)
 
-    var sentences2 : List[Sentence] = anagrams(letterOccurences)
-
-    println(sentences2)
-
-    sentences2 = sentences2.filter((s:Sentence) => sentence_length(s) == total_size(letterOccurences))
-
-    sentences2 = sentences2.sortBy(x => x.toString)
-
-    sentences2.foreach(println)
-
-    //println("sentences:" + sentences2)
-    // Need a list of sentences but getting a list of words
-    sentences2
-
+    anagrams(letterOccurences).filter(matchSentenceLength).sortBy(x => x.toString)
   }
 
 }
