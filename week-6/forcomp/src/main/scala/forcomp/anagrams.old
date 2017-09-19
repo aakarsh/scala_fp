@@ -1,0 +1,62 @@
+
+    def anagrams(occ: Occurrences): List[Sentence] = {
+
+      occ match {
+        case Nil => Nil
+        case occ => {
+
+          val cs = combinations(occ).filter(dictionaryByOccurrences.contains(_))
+          /**
+          * List of anagrams for current sub list
+          */
+          val anagramList = cs.map(c => dictionaryByOccurrences(c))
+          
+          /**
+           *
+           * For each tail occurence list of this combination. Find its anagrams
+           *
+           * If the tail occurence list is empty. Then list of anagrams of current
+           * list are the correct list.
+           *
+           */
+          /**
+          for (c <- cs) {
+            val anag = dictionaryByOccurrences(c)
+            val rest_occurences = subtract(occ,c)
+            yield rest_occurences match {
+              case Nil  => List(c)
+              case rest => anagrams(rest).map(tail => c::tail)
+            }
+          }
+          */
+          /**
+
+          val tails = cs.map( head => (head, dictionaryByOccurrences(head), subtract(occ,head)))
+
+          var tailAnagrams = for ( (head,words,tail) <- tails )
+                               yield ( head , words ,tail, anagrams(tail))
+
+          tailAnagrams = tailAnagrams.filter({case (_,_,_,ta) => ta.size > 0 })
+          tailAnagrams.foreach(println)
+
+          val retval =
+            for {
+                c     <- cs if dictionaryByOccurrences.contains(c)
+                word  <- dictionaryByOccurrences(c)
+              // an    <- anagrams( result.map( words => word::words ), subtract( occ , c ))
+              // if !(an.isEmpty)
+            } yield anagrams(subtract(occ,c)) match {
+              case Nil => word
+              case rest => word::rest
+            }
+          retval.foreach(println)
+          //val filtered = retval.filter( x => !(x.isEmpty))
+          //filtered.toList
+          //List[Sentence]()
+          // retval
+          */
+
+          List[Sentence]()
+        }
+      }
+    }
