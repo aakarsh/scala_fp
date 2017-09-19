@@ -5,17 +5,85 @@ import common._
 /**
  * Assignment 4: Huffman coding
  */
+/**
+ * Historic Background:
+ *
+ * Source: [https://en.wikipedia.org/wiki/Huffman_coding]
+ *
+ * In 1951, David A. Huffman and his MIT information theory classmates
+ * were given the choice of a term paper or a final exam. The
+ * professor, Robert M. Fano, assigned a term paper on the problem of
+ * finding the most efficient binary code. Huffman, unable to prove
+ * any codes were the most efficient, was about to give up and start
+ * studying for the final when he hit upon the idea of using a
+ * frequency-sorted binary tree and quickly proved this method the
+ * most efficient.[3]
+ *
+ * In doing so, Huffman outdid Fano, who had worked with information
+ * theory inventor Claude Shannon to develop a similar code. Building
+ * the tree from the bottom up guaranteed optimality, unlike top-down
+ * Shannon-Fano coding.
+ *
+ * Terminology :
+ *
+ * Q: Should Huffman coding be called Prefix-Free codes instead ?
+ *
+ * Huffman coding uses a specific method for choosing the
+ * representation for each symbol, resulting in a prefix code
+ * (sometimes called "prefix-free codes", that is, the bit string
+ * representing some particular symbol is never a prefix of the bit
+ * string representing any other symbol). Huffman coding is such a
+ * widespread method for creating prefix codes that the term "Huffman
+ * code" is widely used as a synonym for "prefix code" even when such a
+ * code is not produced by Huffman's algorithm.
+ *
+ * Informal Description :
+ *
+ * Given : A set of symbols and their weights (usually proportional to
+ * probabilities).
+ *
+ * Find :
+ *
+ * A prefix-free binary code (a set of codewords) with minimum
+ * expected codeword length (equivalently, a tree with minimum
+ * weighted path length from the root).
+ *
+ * Formal Description :
+ *
+ * Given :
+ *
+ * 1. Alphabet A = { a_1, a_2, a_3, ... , a_n }. A set of symbol alphabet
+ * of size n
+ * 2. Set W = { w_1, w_2, w_3,  ... w_n } a set of weights where w_i is weight(a_i).
+ * Such that the weights are proportional to the frequency of occurances.
+ *
+ * Output:
+ *
+ * 1. Code C(A,W) = ( c_1, c_2, c_3, ..., c_n ) which is a
+ * tuple of code words where c_i is a code word for a_i.
+ *
+ * Goal:
+ *
+ * Let L(C) = \sum{i=0..n} (w_i * length(c_i)) be the weighted path length of code C.
+ * L(C) \leq L(T) for any arbitrary code T.
+ *
+ *
+ * [ http://compression.ru/download/articles/huff/huffman_1952_minimum-redundancy-codes.pdf ]
+ *
+ */
 object Huffman {
 
   /**
    * A huffman code is represented by a binary tree.
    *
-   * Every `Leaf` node of the tree represents one character of the alphabet that the tree can encode.
-   * The weight of a `Leaf` is the frequency of appearance of the character.
+   * Every `Leaf` node of the tree represents one character of the
+   * alphabet that the tree can encode.  The weight of a `Leaf` is the
+   * frequency of appearance of the character.
    *
-   * The branches of the huffman tree, the `Fork` nodes, represent a set containing all the characters
-   * present in the leaves below it. The weight of a `Fork` node is the sum of the weights of these
-   * leaves.
+   * The branches of the huffman tree, the `Fork` nodes, represent a
+   * set containing all the characters present in the leaves below
+   * it. The weight of a `Fork` node is the sum of the weights of
+   * these leaves.
    */
   abstract class CodeTree
 
@@ -36,13 +104,13 @@ object Huffman {
   /**
    * List of leaf weights.
    */
-  def weight(tree: CodeTree): Int =  
+  def weight(tree: CodeTree): Int =
     onLeaves(tree){ case Leaf(_,weight:Int) => weight }{ _ + _ }
 
   /**
    * Returns list of all leaf characters in this Code Tree
    */
-  def chars(tree: CodeTree): List[Char] =  
+  def chars(tree: CodeTree): List[Char] =
     onLeaves(tree) { case Leaf(ch:Char,_) => List[Char](ch) } { _ ::: _ }
 
 
@@ -95,8 +163,8 @@ object Huffman {
    *   }
    *
    */
-  def times(chars: List[Char]): List[(Char, Int)] =  
-    chars.groupBy(identity).map({case (k,v) => (k,v.size)}).toList.sorted 
+  def times(chars: List[Char]): List[(Char, Int)] =
+    chars.groupBy(identity).map({case (k,v) => (k,v.size)}).toList.sorted
 
   /**
    * Returns a list of `Leaf` nodes for a given frequency table
@@ -114,7 +182,7 @@ object Huffman {
         case (ch:Char,freq:Int)::(xs:List[(Char,Int)]) => makeLeafList(Leaf(ch,freq)::res,xs)
       }
     }
-   
+
     def freqOrdering(a:(Char,Int),b:(Char,Int)):Boolean = a._2 < b._2
 
     makeLeafList(List[Leaf](), freqs.sortWith(freqOrdering)).reverse
@@ -178,7 +246,7 @@ object Huffman {
    *    the example invocation. Also define the return type of the `until` function.
    *  - try to find sensible parameter names for `xxx`, `yyy` and `zzz`.
    */
-  def until(stop_transform:  List[CodeTree] => Boolean, 
+  def until(stop_transform:  List[CodeTree] => Boolean,
             transform: List[CodeTree] => List[CodeTree]) (trees: List[CodeTree]): List[CodeTree] = {
     if(stop_transform(trees)) trees
     else until(stop_transform,transform)(transform(trees))
@@ -213,9 +281,9 @@ object Huffman {
    * start again at the root.
    */
   def decode(root: CodeTree,bits: List[Bit]): List[Char] = {
-    
-    def decode_r(res: List[Char], tree: CodeTree, 
-                 bits: List[Bit]) : List[Char] = 
+
+    def decode_r(res: List[Char], tree: CodeTree,
+                 bits: List[Bit]) : List[Char] =
           tree match {
             case Leaf(ch:Char, _) if bits.isEmpty => ch :: res // Append current leaf
             case Fork(_,_,_,_)    if bits.isEmpty => throw new Error("decode.unexpected.end:"+res)
@@ -225,8 +293,8 @@ object Huffman {
             case Fork(_,right:CodeTree,_,_) if bits.head == 1 => decode_r(res,right,bits.tail)
           }
 
-    val empty = List[Char]()
-    decode_r(empty,root, bits).reverse
+    val e = List[Char]()
+    decode_r(e,root, bits).reverse
   }
 
   /**
@@ -259,24 +327,23 @@ object Huffman {
    * tree
    *
    */
-  def encode(root: CodeTree) (text: List[Char]) : List[Bit] = {
-    text.foldLeft(List[Bit]()){(result,char) => result:::(encode_char(root,char))}
-  }
+  def encode(root: CodeTree) (text: List[Char]) : List[Bit] =
+    text.flatMap(encode_char(root))
 
-  def encode_char(root:CodeTree, ch:Char): List[Bit] =  {
+  def encode_char(root:CodeTree)(ch:Char): List[Bit] = {
 
-    def encode_char_r(tree:CodeTree,result:List[Bit], ch:Char): List[Bit] = 
+    def encode_char_r(tree:CodeTree): List[Bit] =
       tree match {
-        case Leaf(_,_) => result
-        case Fork(left:CodeTree,_,_,_) if hasChar(ch,left) => 
-          encode_char_r(left,0::result,ch)
-        case Fork(_,right:CodeTree,_,_) if hasChar(ch,right) => 
-          encode_char_r(right,1::result,ch)
+        case Leaf(_,_) => List[Bit]()
+        case Fork(left:CodeTree,_,_,_)
+          if hasChar(ch,left)  =>  0::encode_char_r(left)
+        case Fork(_,right:CodeTree,_,_)
+          if hasChar(ch,right) =>  1::encode_char_r(right)
         case _ => throw new Error("char not found"+ch)
       }
 
-    val nobits = List[Bit]()
-    encode_char_r(root,nobits,ch).reverse
+    // Apparently dropping reverse has no effect
+    encode_char_r(root).reverse
   }
 
   // Part 4b: Encoding using code table
@@ -287,13 +354,12 @@ object Huffman {
    * the code table `table`.
    */
   def codeBits(table: CodeTable)(char: Char): List[Bit] =
-    table.filter( _ match { case (ch:Char,repr:List[Bit]) => ch == char }) match {
+    table.filter( _ match { case (ch:Char, repr:List[Bit]) => ch == char }) match {
       case Nil =>  List[Bit]()
       case (ch:Char,repr:List[Bit])::other => repr
     }
 
   /**
-   *
    * Given a code tree, create a code table which contains, for every
    * character in the code tree, the sequence of bits representing
    * that character.
@@ -305,18 +371,17 @@ object Huffman {
    *
    */
   def convert(root: CodeTree): CodeTable = {
-    def convert_r(res: CodeTable, tree: CodeTree): CodeTable = 
-      tree match {
-        // TODO: Did I change the semantics here by adding reverse? 
-        case Leaf(char : Char, _ ) => 
-          (char, encode_char(root ,char))::res
 
-        case Fork(left: CodeTree, right: CodeTree, _ , _ ) =>  
+    def convert_r(res: CodeTable, tree: CodeTree): CodeTable =
+      tree match { // TODO: Did I change the semantics here by adding reverse?
+        case Leaf(char : Char, _ ) =>
+          (char, encode_char(root)(char))::res
+        case Fork(left: CodeTree, right: CodeTree, _ , _ ) =>
           convert_r(convert_r(res ,left):::res, right)
       }
 
-    val empty = List[(Char,List[Bit])]()
-    convert_r(empty, root)
+    val e = List[(Char,List[Bit])]()
+    convert_r(e, root)
   }
 
 
