@@ -122,6 +122,19 @@ object Huffman {
   def makeCodeTree(left: CodeTree, right: CodeTree) =
     Fork(left, right, chars(left) ::: chars(right), weight(left) + weight(right))
 
+
+  def toTreeString(root: CodeTree ) : String = {
+    def toTreeString_r(tree:CodeTree,depth:Int):String = {
+      (" "*depth) + 
+      (tree match {
+        case Leaf(ch:Char,w:Int) =>  "-"+"("+ch+","+w+")"
+        case Fork(left:CodeTree,right: CodeTree,ch:List[Char],w:Int ) =>
+          "[" +ch.mkString(",")+":"+w+ "]\n"+toTreeString_r(left,depth+1)+"\n"+toTreeString_r(right,depth+1)
+      })
+    }
+    "\n"+toTreeString_r(root,0)
+  }
+
   // Part 2: Generating Huffman trees
   /**
    * In this assignment, we are working with lists of characters. This function allows
@@ -211,8 +224,10 @@ object Huffman {
       trees match {
         case Nil => List[CodeTree](node)
         case tree::Nil =>
-          if(weight(tree) > weight(node)) List(node,tree) // why is order reversed again?
-          else List(tree,node)
+          if(weight(tree) > weight(node)) 
+            node::tree::Nil // why is order reversed again?
+          else 
+            tree::node::Nil
         case head::rest =>
           if (weight(head) > weight(node)) node::head::rest
           else head::reinsert(node,rest)
@@ -327,23 +342,22 @@ object Huffman {
    * tree
    *
    */
-  def encode(root: CodeTree) (text: List[Char]) : List[Bit] =
-    text.flatMap(encode_char(root))
+  def encode(root: CodeTree) (text: List[Char]) : List[Bit] = text.flatMap(encode_char(root))
 
   def encode_char(root:CodeTree)(ch:Char): List[Bit] = {
 
     def encode_char_r(tree:CodeTree): List[Bit] =
       tree match {
-        case Leaf(_,_) => List[Bit]()
+        case Leaf(_,_) => List[Bit]() // if three is a leaf
         case Fork(left:CodeTree,_,_,_)
-          if hasChar(ch,left)  =>  0::encode_char_r(left)
+          if hasChar(ch,left)  =>  0 :: encode_char_r(left)
         case Fork(_,right:CodeTree,_,_)
-          if hasChar(ch,right) =>  1::encode_char_r(right)
+          if hasChar(ch,right) =>  1 :: encode_char_r(right)
         case _ => throw new Error("char not found"+ch)
       }
 
     // Apparently dropping reverse has no effect
-    encode_char_r(root).reverse
+    encode_char_r(root)
   }
 
   // Part 4b: Encoding using code table
@@ -368,22 +382,20 @@ object Huffman {
    * tree `tree` is itself a valid code tree that can be represented
    * as a code table. Using the code tables of the sub-trees, think of
    * how to build the code table for the entire tree.
-   *
    */
   def convert(root: CodeTree): CodeTable = {
 
     def convert_r(res: CodeTable, tree: CodeTree): CodeTable =
-      tree match { // TODO: Did I change the semantics here by adding reverse?
+      tree match { // TODO : Did I change the semantics here by adding reverse?
         case Leaf(char : Char, _ ) =>
           (char, encode_char(root)(char))::res
         case Fork(left: CodeTree, right: CodeTree, _ , _ ) =>
-          convert_r(convert_r(res ,left):::res, right)
+          convert_r ( convert_r (res ,left) ::: res, right)
       }
 
     val e = List[(Char,List[Bit])]()
     convert_r(e, root)
   }
-
 
   /**
    * This function takes two code tables and merges them into
@@ -393,7 +405,6 @@ object Huffman {
    */
   def mergeCodeTables(a: CodeTable, b: CodeTable): CodeTable = ???
 
-
   /**
    * This function encodes `text` according to the code tree `tree`.
    *
@@ -402,8 +413,8 @@ object Huffman {
    *
    */
   def quickEncode(tree: CodeTree)(text: List[Char]) : List[Bit] = {
-    val table = convert(tree)
-    text.flatMap(codeBits(table))
+    val codeTable:CodeTable = convert(tree)
+    text.flatMap(codeBits(codeTable))
   }
 
 }
