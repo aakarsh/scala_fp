@@ -1,13 +1,13 @@
 package streams
 
 /**
- * A main object that can be used to execute the Bloxorz solver
+ * A main object that can be used to execute the Bloxorz solver.
  */
 object Bloxorz extends App {
 
   /**
-   * A level constructed using the `InfiniteTerrain` trait which defines
-   * the terrain to be valid at every position.
+   * A level constructed using the `InfiniteTerrain` trait which
+   * defines the terrain to be valid at every position.
    */
   object InfiniteLevel extends Solver with InfiniteTerrain {
     val startPos = Pos(1,3)
@@ -46,4 +46,5 @@ object Bloxorz extends App {
   }
 
   println(Level1.solution)
+
 }
