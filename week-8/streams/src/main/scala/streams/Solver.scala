@@ -10,6 +10,12 @@ trait Solver extends GameDef {
 
   type BlockStream = Stream[(Block, List[Move])]
 
+  def filterBlockStream(bs:BlockStream, predicate: Block => Boolean ): BlockStream = 
+    bs filter { case (b:Block,_) => predicate(b) }
+
+  def blocks(bs:BlockStream): Stream[Block] =     
+    bs map { case (b:Block,_) => b }
+
   /**
     * Returns `true` if the block `b` is at the final position
     */
@@ -35,11 +41,8 @@ trait Solver extends GameDef {
     * It should only return valid neighbors, i.e. block positions
     * that are inside the terrain.
     */
-  def neighborsWithHistory(b: Block, history: List[Move]): BlockStream =
-    (b.up,Up::history)       #::
-    (b.down,Down::history)   #::
-    (b.left,Left::history)   #::
-    (b.right,Right::history) #:: Stream.empty
+  def neighborsWithHistory(b: Block, history: List[Move]): BlockStream = 
+    b.legalNeighbors.map({case(nb:Block,m:Move) => (nb, m::history)}).toStream
 
   /**
     * This function returns the list of neighbors without the block
@@ -47,7 +50,7 @@ trait Solver extends GameDef {
     * make sure that we don't explore circular paths.
     */
   def filterBySet(neighbors: BlockStream, explored: Set[Block]): BlockStream =
-    neighbors.filter({ case (b:Block, _ ) => explored.contains(b)})
+    filterBlockStream(neighbors, !explored.contains(_))
 
 
   /**
@@ -108,12 +111,18 @@ trait Solver extends GameDef {
 
       case (block:Block, history:List[Move]) #:: xs     =>        {
 
+        //println("Found block "+block)
+
         // Construct a list of neighbors we have not visited,
         // that are reachable from the current head
         //
-        // Consume the head block and generate a stream of new blocks reachable from head block
+        // Consume the head block and generate a stream of new blocks
+        // reachable from head block.
 
-        val newBorder: BlockStream = filterBySet(neighborsWithHistory(block, history), explored)
+        val neighbors = neighborsWithHistory(block, history)
+
+        //println("Neighbours : " + neighbors.toList)
+        val newBorder: BlockStream = filterBySet(neighbors, explored)
 
         /**
          * From must return all blocks reachable from the head in
@@ -122,10 +131,8 @@ trait Solver extends GameDef {
          * head of the stream.  after the new border the next most
          * reachble will be.
          */
-        def toSet(blockStream: BlockStream):Set[Block] =
-          blockStream.map({ case (b:Block,_) => b }).toSet
 
-        newBorder #::: from(newBorder, toSet(newBorder) ++ explored)
+        newBorder #::: from(newBorder, blocks(newBorder).toSet ++ explored)
       }
     }
   }
@@ -134,10 +141,10 @@ trait Solver extends GameDef {
     * The stream of all paths that begin at the starting block.
     */
   lazy val pathsFromStart: BlockStream = {
-    val initalStream =  (startBlock,List[Move]()) #::Stream.empty
+    val initalStream =  (startBlock,List[Move]()) #:: Stream.empty
     val initalExplored = Set(startBlock) // start by exploring first block
-
-    from(initalStream, initalExplored)
+    val paths = from(initalStream, initalExplored)
+    paths
   }
 
   /**
@@ -145,8 +152,11 @@ trait Solver extends GameDef {
    * with the history how it was reached.
    */
   lazy val pathsToGoal : BlockStream = {
-    val endInGoal = pathsFromStart.filter({case (b:Block,_) => done(b)})
-    endInGoal
+    println("Number paths : " + pathsFromStart.length)
+    println("Paths : \n" + pathsFromStart.mkString("\n"))
+    val paths = filterBlockStream(pathsFromStart, done)
+    println("paths to goal: " + paths)
+    paths
   }
 
   /**
@@ -157,9 +167,10 @@ trait Solver extends GameDef {
     * the first move that the player should perform from the starting
     * position.
     */
-  lazy val solution: List[Move] =  pathsToGoal match {
-    case Stream.Empty => List[Move]()
-    case ( _, moves: List[Move]) #:: xs => moves  // Assuming that head is shortest path to the goal
-  }
+  lazy val solution: List[Move] =  
+    pathsToGoal match {
+      case Stream.Empty => List[Move]()
+      case ( _, moves: List[Move]) #:: xs => moves  // Assuming that head is shortest path to the goal
+    }
 
 }

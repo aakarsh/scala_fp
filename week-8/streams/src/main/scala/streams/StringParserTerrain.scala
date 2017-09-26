@@ -55,8 +55,8 @@ trait StringParserTerrain extends GameDef {
   def terrainFunction(levelVector: Vector[Vector[Char]]): Pos => Boolean = {
     val validChars:Set[Char]  = Set('S','T','o')
     def check(pos:Pos) : Boolean = pos match {
-      case Pos(r:Int, c:Int) if( r >= levelVector.size)       =>  false
-      case Pos(r:Int, c:Int) if( c >= levelVector(0).size)    =>  false
+      case Pos(r:Int, c:Int) if( r < 0 || r >= levelVector.size)       =>  false
+      case Pos(r:Int, c:Int) if( c < 0 || c >= levelVector(0).size)    =>  false
       case Pos(r:Int, c:Int)  =>  validChars.contains(levelVector(r)(c))
     }
     check
