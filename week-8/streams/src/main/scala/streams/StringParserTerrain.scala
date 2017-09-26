@@ -86,4 +86,7 @@ trait StringParserTerrain extends GameDef {
   lazy val startPos: Pos = findChar('S', vector)
   lazy val goal: Pos = findChar('T', vector)
 
+  // TODO: ADD PRETTY PRINTER
+  
+  
 }

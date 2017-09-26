@@ -7,19 +7,18 @@ import common._
   */
 trait Solver extends GameDef {
 
-
   type BlockStream = Stream[(Block, List[Move])]
 
-  def filterBlockStream(bs:BlockStream, predicate: Block => Boolean ): BlockStream = 
+  def filterBlockStream(bs:BlockStream, predicate: Block => Boolean ): BlockStream =
     bs filter { case (b:Block,_) => predicate(b) }
 
-  def blocks(bs:BlockStream): Stream[Block] =     
+  def blocks(bs:BlockStream): Stream[Block] =
     bs map { case (b:Block,_) => b }
 
   /**
     * Returns `true` if the block `b` is at the final position
     */
-  def done(b: Block): Boolean =
+  def done (b: Block): Boolean =
     b.isStanding && (b match {
       case Block(b1: Pos, b2:Pos) => (b1 == goal && b2 == goal)
       case _ => false
@@ -41,8 +40,10 @@ trait Solver extends GameDef {
     * It should only return valid neighbors, i.e. block positions
     * that are inside the terrain.
     */
-  def neighborsWithHistory(b: Block, history: List[Move]): BlockStream = 
-    b.legalNeighbors.map({case(nb:Block,m:Move) => (nb, m::history)}).toStream
+  def neighborsWithHistory(b: Block, history: List[Move]): BlockStream =
+    b.legalNeighbors
+      .map({ case(nb:Block,m:Move) => (nb, (m::history)) })
+      .toStream
 
   /**
     * This function returns the list of neighbors without the block
@@ -51,7 +52,6 @@ trait Solver extends GameDef {
     */
   def filterBySet(neighbors: BlockStream, explored: Set[Block]): BlockStream =
     filterBlockStream(neighbors, !explored.contains(_))
-
 
   /**
     * The function `from` returns the stream of all possible paths
@@ -78,29 +78,33 @@ trait Solver extends GameDef {
     * the correctly sorted stream.
     *
     */
-  def from(initial : BlockStream,  // Blocks by ascending path length,
-                                                   // Along with list of moves to reach that block
-                                                   // Nearest blocks likely to appear first.
+    def from(initial : BlockStream,
+             // Blocks by ascending path length,
+             // Along with list of moves to reach that block
+             // Nearest blocks likely to appear first.
+           explored : Set[Block]) :
+             // All blocks which have already been
+            // explored and should not be revisited.
 
-           explored : Set[Block]) :                // All blocks which have already been
-                                                   // explored and should not be revisited.
+      BlockStream  = {
 
-      BlockStream  = {             // All possible paths that can be reachable from
-                                                   // initial.head
+        // All possible paths that can be reachable from
+        // initial.head
 
-        // explored will not get updated here since the only node that gets really explored
-        // is initial.head.
+        // Explored will not get updated here since the only node that gets really explored
+        // is initial.head
 
-        // initial can be the the peripheral block list.
+        // Initial can be the the peripheral block list
 
     /**
      * The heads of the initial define the periphary of
      * exploration. The explored defines that which has
      * already been explored.
      */
+
     initial match {
 
-      // if there is no head there are no paths
+      // If there is no head there are no paths
       case Stream.Empty => Stream.empty
 
       // Take the head - Find all possible blocks reachable from the head.
@@ -124,25 +128,28 @@ trait Solver extends GameDef {
         //println("Neighbours : " + neighbors.toList)
         val newBorder: BlockStream = filterBySet(neighbors, explored)
 
+        // fix history
+        val nb = newBorder.map({ case ( b:Block, mvs:List[Move] )  => (b, mvs.reverse)})
+
         /**
          * From must return all blocks reachable from the head in
          * ascending order.  clearly the newBorder blocks are the most
          * reachable blocks from the head.  so they must be at the
          * head of the stream.  after the new border the next most
          * reachble will be.
-         */
+         */        
+        nb  #::: from(newBorder, blocks(newBorder).toSet ++ explored)
 
-        newBorder #::: from(newBorder, blocks(newBorder).toSet ++ explored)
       }
     }
-  }
+ }
 
   /**
     * The stream of all paths that begin at the starting block.
     */
   lazy val pathsFromStart: BlockStream = {
-    val initalStream =  (startBlock,List[Move]()) #:: Stream.empty
-    val initalExplored = Set(startBlock) // start by exploring first block
+    val initalStream   =  (startBlock,List[Move]()) #:: Stream.empty
+    val initalExplored = Set(startBlock) // Start by exploring first block.
     val paths = from(initalStream, initalExplored)
     paths
   }
@@ -152,10 +159,10 @@ trait Solver extends GameDef {
    * with the history how it was reached.
    */
   lazy val pathsToGoal : BlockStream = {
-    println("Number paths : " + pathsFromStart.length)
-    println("Paths : \n" + pathsFromStart.mkString("\n"))
-    val paths = filterBlockStream(pathsFromStart, done)
-    println("paths to goal: " + paths)
+    println("Number Paths :" + pathsFromStart.length)
+    println("Paths :\n"      + pathsFromStart.mkString("\n"))
+    val paths = filterBlockStream( pathsFromStart, done)
+    println("Paths to goal: " + paths) // filter to contain only goal block
     paths
   }
 
@@ -167,10 +174,10 @@ trait Solver extends GameDef {
     * the first move that the player should perform from the starting
     * position.
     */
-  lazy val solution: List[Move] =  
+  lazy val solution: List[Move] =
     pathsToGoal match {
       case Stream.Empty => List[Move]()
-      case ( _, moves: List[Move]) #:: xs => moves  // Assuming that head is shortest path to the goal
+      case (_,moves: List[Move]) #:: xs => moves  // Assuming that head is shortest path to the goal
     }
 
 }
