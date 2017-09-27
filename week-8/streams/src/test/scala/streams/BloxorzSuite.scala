@@ -38,9 +38,41 @@ class BloxorzSuite extends FunSuite {
         |-ooooooooo
         |-----ooToo
         |------ooo-""".stripMargin
-
-    val optsolution = List(Right, Right, Down, Right, Right, Right, Down)
+    //
+    val optsolution = List(Right,  // alignment : { z-aligned ->  x-aligned }
+                           Right,  // alignment : { x-aligned ->  z-aligned }
+                           Down,   // alignment : { z-aligned ->  y-aligned }
+                           Right,  // alignment : { y-aligned ->  y-aligned }
+                           Right,  // alignment : { y-aligned ->  y-aligned }
+                           Right,  // alignment : { y-aligned ->  y-aligned }
+                           Down)   // alignment : { y-aligned ->  z-aligned }
   }
+
+  // (Pos(1,2),   (Pos(3,2),
+  //  Pos(2,2)) -> Pos(3,2))
+
+  trait SimpleRoll extends SolutionChecker {
+    val level =
+      """So-
+        |ooo
+        |ooo
+        |--T""".stripMargin        // Do something
+    // something here.
+    val optsolution = List(Down,   // alignment : { z-aligned ->  y-aligned }
+                           Right,  // alignment : { y-aligned ->  y-aligned }
+                           Right,  // alignment : { y-aligned ->  y-aligned }
+                           Down)   // alignment : { y-aligned ->  z-aligned }
+  }
+
+  test("go down,right,down") {
+    new SimpleRoll {
+
+      assert(solve(solution) == Block(goal,goal))
+      assert(solution == optsolution)
+
+    }
+  }
+
 
   trait GoRightLevel extends SolutionChecker {
     val level = """oSooTo----""".stripMargin
@@ -83,14 +115,12 @@ class BloxorzSuite extends FunSuite {
     val optsolution = List(Up, Up,Right,Right,Right,Right,Right,Right)
   }
 
-
   test("go up,right") {
     new CornerLevel {
       assert(solve(solution) == Block(goal,goal))
       assert(solution == optsolution)
     }
   }
-
 
   test("go right") {
     new GoRightLevel {
@@ -120,12 +150,10 @@ class BloxorzSuite extends FunSuite {
     }
   }
 
-
-
   test("z-aligned") {
     new Level1 {
       val block = Block(Pos(2,2),Pos(2,2))
-      // 2,2
+      //
       assert(Pos(2,2).deltaRow(-2) ==  Pos(0,2))
       assert(Pos(2,2).deltaCol(-2) ==  Pos(2,0))
       // Preserve row value
@@ -191,17 +219,16 @@ class BloxorzSuite extends FunSuite {
     }
   }
 
- 
   test("optimal solution for level 1") {
     new Level1 {
       assert(solve(solution) == Block(goal, goal))
     }
   }
-  /** 
+
   test("optimal solution length for level 1") {
     new Level1 {
       assert(solution.length == optsolution.length)
     }
   }
-  */
+
 }

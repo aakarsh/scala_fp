@@ -125,8 +125,13 @@ trait Solver extends GameDef {
 
         val neighbors = neighborsWithHistory(block, history)
 
-        //println("Neighbours : " + neighbors.toList)
+        //println("Neighbours of ["+block+"] : ")
+        //neighbors.toList.foreach(println)
+
         val newBorder: BlockStream = filterBySet(neighbors, explored)
+        //println("Explored : " + explored)
+        //println("After Filter [" + block + "]: ")
+        //neighbors.toList.foreach(println)
 
         // fix history
         val nb = newBorder.map({ case ( b:Block, mvs:List[Move] )  => (b, mvs.reverse)})
@@ -138,7 +143,9 @@ trait Solver extends GameDef {
          * head of the stream.  after the new border the next most
          * reachble will be.
          */        
-        nb  #::: from(newBorder, blocks(newBorder).toSet ++ explored)
+        // prematurely adding new border to exlored set
+        
+        nb  #::: from( xs #::: newBorder,   explored + block)
 
       }
     }
@@ -159,10 +166,10 @@ trait Solver extends GameDef {
    * with the history how it was reached.
    */
   lazy val pathsToGoal : BlockStream = {
-    println("Number Paths :" + pathsFromStart.length)
-    println("Paths :\n"      + pathsFromStart.mkString("\n"))
+    //println("Number Paths :" + pathsFromStart.length)
+    //println("Paths :\n"      + pathsFromStart.mkString("\n"))
     val paths = filterBlockStream( pathsFromStart, done)
-    println("Paths to goal: " + paths) // filter to contain only goal block
+    //println("Paths to goal: " + paths) // filter to contain only goal block
     paths
   }
 
