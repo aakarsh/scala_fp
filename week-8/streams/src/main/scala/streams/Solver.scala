@@ -103,35 +103,20 @@ trait Solver extends GameDef {
      */
 
     initial match {
-
       // If there is no head there are no paths
       case Stream.Empty => Stream.empty
-
       // Take the head - Find all possible blocks reachable from the head.
       //
       // For every block reachable from head construct a list of all
       // blocks reachable from this block ensure that list of blocks
       // explored contains this.
 
-      case (block:Block, history:List[Move]) #:: xs     =>        {
-
-        //println("Found block "+block)
+      case (block:Block, history:List[Move]) #:: xs => {
 
         // Construct a list of neighbors we have not visited,
         // that are reachable from the current head
-        //
-        // Consume the head block and generate a stream of new blocks
-        // reachable from head block.
-
         val neighbors = neighborsWithHistory(block, history)
-
-        //println("Neighbours of ["+block+"] : ")
-        //neighbors.toList.foreach(println)
-
         val newBorder: BlockStream = filterBySet(neighbors, explored)
-        //println("Explored : " + explored)
-        //println("After Filter [" + block + "]: ")
-        //neighbors.toList.foreach(println)
 
         // fix history
         val nb = newBorder.map({ case ( b:Block, mvs:List[Move] )  => (b, mvs.reverse)})
@@ -142,9 +127,7 @@ trait Solver extends GameDef {
          * reachable blocks from the head.  so they must be at the
          * head of the stream.  after the new border the next most
          * reachble will be.
-         */        
-        // prematurely adding new border to exlored set
-        
+         */
         nb  #::: from( xs #::: newBorder,   explored + block)
 
       }
@@ -165,13 +148,8 @@ trait Solver extends GameDef {
    * Returns a stream of all possible pairs of the goal block along
    * with the history how it was reached.
    */
-  lazy val pathsToGoal : BlockStream = {
-    //println("Number Paths :" + pathsFromStart.length)
-    //println("Paths :\n"      + pathsFromStart.mkString("\n"))
-    val paths = filterBlockStream( pathsFromStart, done)
-    //println("Paths to goal: " + paths) // filter to contain only goal block
-    paths
-  }
+  lazy val pathsToGoal : BlockStream =
+    filterBlockStream( pathsFromStart, done)
 
   /**
     * The (or one of the) shortest sequence(s) of moves to reach the
