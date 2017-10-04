@@ -52,6 +52,11 @@ trait BinomialHeap extends quickcheck.Heap {
 }
 
 trait Bogus1BinomialHeap extends BinomialHeap {
+
+  /**
+   * Take the first element in the binomial heap and return the
+   * root of this tree. As the minimum element.
+   */
   override def findMin(ts: H) = ts match {
     case Nil => throw new NoSuchElementException("min of empty heap")
     case t::ts => root(t)
@@ -59,16 +64,35 @@ trait Bogus1BinomialHeap extends BinomialHeap {
 }
 
 trait Bogus2BinomialHeap extends BinomialHeap {
+
+  /**
+   * While linking threes of equal rank 
+   */
   override protected def link(t1: Node, t2: Node): Node = // t1.r==t2.r
-    if (!ord.lteq(t1.x,t2.x)) Node(t1.x, t1.r+1, t2::t1.c) else Node(t2.x, t2.r+1, t1::t2.c)
+    if (!ord.lteq(t1.x,t2.x))
+      Node(t1.x,
+           t1.r + 1,
+           t2::t1.c)
+    else Node(t2.x,
+              t2.r + 1,
+              t1::t2.c)
 }
 
 trait Bogus3BinomialHeap extends BinomialHeap {
+
+  /**
+   *
+   */
   override protected def link(t1: Node, t2: Node): Node = // t1.r==t2.r
-    if (ord.lteq(t1.x,t2.x)) Node(t1.x, t1.r+1, t1::t1.c) else Node(t2.x, t2.r+1, t2::t2.c)
+    if (ord.lteq(t1.x,t2.x)) Node(t1.x, t1.r+1, t1::t1.c)
+    else Node(t2.x, t2.r+1, t2::t2.c)
 }
 
 trait Bogus4BinomialHeap extends BinomialHeap {
+
+  /**
+   *
+   */
   override def deleteMin(ts: H) = ts match {
     case Nil => throw new NoSuchElementException("delete min of empty heap")
     case t::ts => meld(t.c.reverse, ts)
@@ -76,6 +100,10 @@ trait Bogus4BinomialHeap extends BinomialHeap {
 }
 
 trait Bogus5BinomialHeap extends BinomialHeap {
+
+  /**
+   *
+   */
   override def meld(ts1: H, ts2: H) = ts1 match {
     case Nil => ts2
     case t1::ts1 => List(Node(t1.x, t1.r, ts1++ts2))
