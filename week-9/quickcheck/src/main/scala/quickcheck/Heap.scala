@@ -39,6 +39,20 @@ trait Heap {
 
   def findMin(h: H): A       // A minimum of the heap H
   def deleteMin(h: H): H     // A heap resulting from deleting a minimum of H
+
+  def sortedList(h:H): List[A] = {
+
+    def sorted_aux(acc:List[A], h:H): List[A] = h match {
+      case heap if heap == empty  =>  acc
+      case _ =>
+        val m = findMin(h)
+        sorted_aux(m::acc,deleteMin(h))
+    }
+
+    sorted_aux(List[A](),h).reverse
+  }
+
+
 }
 
 // {Figure: 3 }- {Page 7}
@@ -73,22 +87,24 @@ trait BinomialHeap extends Heap {
    * Link the trees of equal rank make the larger one the left child
    * of the smaller one.
    */
-  protected def link(t1: Node, t2: Node): Node = // t1.r == t2.r
+  protected def link(t1: Node,
+                     t2: Node): Node = // t1.r == t2.r
     // ( t1.x <= t2.x )  - use the smaller i.e.
     //  if t1.x is the smaller hence make it the
     //  new root element preserving the root property.
+    // t1.x < t2.x
     if (ord.lteq(t1.x,t2.x))
       Node ( t1.x,        // - picked as the root element
-             t1.r + 1,    // - The height of the tree is increased by 1
+             t1.r + 1,    // - the height of the tree is increased by 1
                           // - and the number of nodes is doubled.
              t2 :: t1.c)  // - t1. was picked as the root. Append t2 the bigger one
                           // - as the left most child of of t1
-    // make: t2 root the head
+
+   // Q: Some thing goes here ?
+   // make : t2 root the head
     else Node ( t2.x,         // same as above but now pick t2 as the root
                 t2.r + 1 ,    // increase the rank.
                 t1 :: t2.c )
-
-  
 
   /**
    * Insert node t into binomial queue.  preserving the property that
@@ -216,12 +232,13 @@ trait BinomialHeap extends Heap {
         meld(c.reverse, tsq)                          // list of children are sorted in ascending order
                                                       // of ranks reverse it and meld with rest of queue.
     }
+
 } // end of heap
 
 trait Bogus1BinomialHeap extends BinomialHeap {
   /**
-   * Takes a binomial heap and always returns the root of the
-   * first tree with shortest ranked element
+   * Takes a binomial heap and always returns the root of the first
+   * tree with shortest ranked element.
    */
   override def findMin(ts: H) =
     ts match {
@@ -243,34 +260,44 @@ trait Bogus2BinomialHeap extends BinomialHeap {
 }
 
 trait Bogus3BinomialHeap extends BinomialHeap {
-
   /**
-   * Using the linked tree's children 
+   * Q: When do we link nodes ?
+   * A:
    */
-  override protected def link(t1: Node, t2: Node): Node = // t1.r==t2.r
-    // ( t1.x < t2.x )
-    if ( ord.lteq(t1.x,t2.x) )
+  override protected def link(t1: Node, t2: Node): Node =
+    // t1.r==t2.r
+    if (ord.lteq(t1.x, t2.x)) // ( t1.x < t2.x )
       Node ( t1.x,
              t1.r + 1,
-             t1 :: t1.c )
-    else Node( t2.x,
-               t2.r + 1,
-               t2 :: t2.c )
+             t1 :: t1.c)
+    else
+      Node ( t2.x,
+             t2.r + 1,
+             t2 :: t2.c)
 }
 
 trait Bogus4BinomialHeap extends BinomialHeap {
+
   /**
-   * breaks deleteMin 
+   * Breaks [deleteMin] ...
+   *
+   * Sc: always just deletes the first of t's children.
+   * A: But how can deleteMin always get the first child.
+   * P: But that would mean that ... deleteMin will not give
+   * minimum but the first childd
+   * 
    */
-  override def deleteMin(ts: H) = ts match {
-    case Nil => throw new NoSuchElementException("delete min of empty heap")
-    case t::ts => meld(t.c.reverse, ts)
+  override def deleteMin (ts: H) = ts match {
+    case Nil =>
+      throw new NoSuchElementException("delete min of empty heap")
+    case t::ts => 
+      meld(t.c.reverse, ts)
   }
 }
 
 trait Bogus5BinomialHeap extends BinomialHeap {
   /**
-   * breaks meld by ???
+   * Breaks meld by ???
    */
   override def meld(ts1: H, ts2: H) = ts1 match {
     case Nil => ts2
