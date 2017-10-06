@@ -109,9 +109,11 @@ object CalculatorUI extends js.JSApp {
   // CALCULATOR
 
   def setupCalculator(): Unit = {
+
     val names = (0 until 10).map(i => ('a' + i).toChar.toString)
 
     val inputs = names.map(name => elementById[html.Input]("calculatorexpr" + name))
+
     val exprs = inputs.map(exprOfInput)
 
     val namedExpressions = names.zip(exprs).toMap
@@ -121,9 +123,13 @@ object CalculatorUI extends js.JSApp {
     assert(namedValues.keySet == namedExpressions.keySet)
 
     for ((name, valueSignal) <- namedValues) {
+
       val span = elementById[html.Span]("calculatorval" + name)
+
       var dehighlightTimeout: Option[js.timers.SetTimeoutHandle] = None
+
       Signal {
+
         span.textContent = valueSignal().toString
 
         span.style.backgroundColor = "#ffff99"
@@ -132,11 +138,13 @@ object CalculatorUI extends js.JSApp {
         dehighlightTimeout = Some(js.timers.setTimeout(1500) {
           dehighlightTimeout = None
           span.style.backgroundColor = "white"
+
         })
       }
     }
   }
 
+  
   def exprOfInput(input: html.Input): Signal[Expr] = {
     val text = inputValueSignal(input)
     val parent = input.parentElement

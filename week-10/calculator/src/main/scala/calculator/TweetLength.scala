@@ -1,12 +1,22 @@
 package calculator
 
+/**
+ * Something goes here.
+ */
 object TweetLength {
+
   final val MaxTweetLength = 140
 
+  /**
+   * 
+   */
   def tweetRemainingCharsCount(tweetText: Signal[String]): Signal[Int] = {
     ???
   }
 
+  /**
+   * 
+   */
   def colorForRemainingCharsCount(remainingCharsCount: Signal[Int]): Signal[String] = {
     ???
   }
@@ -16,6 +26,7 @@ object TweetLength {
    *  of Unicode *code points* in the string.
    *  Note that this is still a simplified view of the reality. Full details
    *  can be found at
+   * 
    *  https://dev.twitter.com/overview/api/counting-characters
    */
   private def tweetLength(text: String): Int = {
