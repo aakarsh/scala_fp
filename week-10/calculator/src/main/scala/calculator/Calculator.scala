@@ -11,17 +11,28 @@ final case class Divide(a: Expr, b: Expr) extends Expr
 object Calculator {
 
   /**
-   * 
+   *
    */
-  def computeValues(namedExpressions: Map[String, Signal[Expr]]): Map[String, Signal[Double]] = {
-    ???
+  def computeValues(namedExpressions: Map[String, Signal[Expr]]):
+                                      Map[String, Signal[Double]] = {
+    namedExpressions.map({case (k,expr) => (k -> Signal[Double]{eval(expr(),namedExpressions)})})
   }
 
   /**
-   * 
+   * Solve expressions.
    */
-  def eval(expr: Expr, references: Map[String, Signal[Expr]]): Double = {
-    ???
+  def eval(expr: Expr,
+           references: Map[String, Signal[Expr]]): Double = {    
+    expr match {
+      case Literal(v:Double)        => v
+      case Ref(name: String)        => 
+        val value = getReferenceExpr(name,references)
+        eval(value,references)
+      case Plus(a: Expr, b: Expr)   => eval(a,references) + eval(b,references)
+      case Minus(a: Expr, b: Expr)  => eval(a,references) - eval(b,references)
+      case Times(a: Expr, b: Expr)  => eval(a,references) * eval(b,references)
+      case Divide(a: Expr, b: Expr) => eval(a,references) / eval(b,references)
+    }
   }
 
   /**
@@ -31,9 +42,10 @@ object Calculator {
   private def getReferenceExpr(name: String,
                                references: Map[String, Signal[Expr]]) = {
     references.get(name).fold[Expr] {
-      Literal(Double.NaN)
-    } { exprSignal =>
-      exprSignal()
+      Literal(Double.NaN) // empty
+    } {
+      exprSignal => exprSignal()
     }
   }
+
 }
