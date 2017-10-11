@@ -17,6 +17,7 @@ object ParallelCountChangeRunner {
   ) withWarmer(new Warmer.Default)
 
   def main(args: Array[String]): Unit = {
+
     val amount = 250
     val coins = List(1, 2, 5, 10, 20, 50)
 
@@ -127,7 +128,6 @@ object ParallelCountChange {
   def parCountChange(money: Int,
                      coins: List[Int],
                      threshold: Threshold): Int = {
-
     // not able to balance native vs jvm stuff.
     //
     if(threshold(money,coins)) {
@@ -146,11 +146,11 @@ object ParallelCountChange {
 
               // val takingFirstCoin   = aux(depth + 1, money - firstCoin, coins,     coinsUsed)
               // val withoutFirstCoin  = aux(depth + 1, money , restCoins, firstCoin::coinsUsed)
-              
+
               val (takingFirstCoin, withoutFirstCoin) =
                 parallel(parCountChange( money - firstCoin, coins, threshold),
                          parCountChange( money, restCoins, threshold))
-              
+
               (withoutFirstCoin + takingFirstCoin)
           }
       retval
@@ -159,21 +159,42 @@ object ParallelCountChange {
 
   /**
    * Threshold heuristic based on the starting money.
+   *
+   * If the amount money in the current iteration is less than 2/3 the
+   * starting money we will threshold the parallel computation.
    */
-  def moneyThreshold(startingMoney: Int): Threshold =
-    ???
+  def moneyThreshold(startingMoney: Int): Threshold = {
+    def threshold(money: Int, 
+                  coins: List[Int]): Boolean = 
+      money <= ( 2 * startingMoney ) / 3
 
+    threshold
+  }
+
+  
   /**
-   * Threshold heuristic based on the total number of initial coins.
+   * Heuristic dependent on the number of remaining cooin
    */
-  def totalCoinsThreshold(totalCoins: Int): Threshold =
-    ???
+  def totalCoinsThreshold(totalCoins : Int): Threshold = {
+    
+    def threshold(money: Int, coins: List[Int]): Boolean = 
+      coins.size <= (2 * totalCoins ) / 3
 
+    threshold
+  }
   /**
    * Threshold heuristic based on the starting money and the initial
    * list of coins.
    */
   def combinedThreshold(startingMoney: Int, allCoins: List[Int]): Threshold = {
-    ???
+
+
+    def threshold(money: Int, coins: List[Int]) : Boolean = {
+
+      moneyThreshold(startingMoney)(money,coins) ||
+      totalCoinsThreshold(allCoins.size) (money,coins)
+    }
+    
+    threshold
   }
 }
