@@ -36,26 +36,43 @@ object ParallelParenthesesBalancingRunner {
     println(s"parallel result = $parResult")
     println(s"parallel balancing time: $fjtime ms")
     println(s"speedup: ${seqtime / fjtime}")
-
   }
-
 }
 
 object ParallelParenthesesBalancing {
 
   /**
-   * Returns `true` iff the parentheses in the input `chars` are balanced.
+   * Returns `true` iff the parentheses
+   * in the input `chars` are balanced.
+   *
+   * Sequentially go through the characters
+   * and check that the results are
+   * balanced.
    */
-  def balance(chars: Array[Char]): Boolean = {  
-    ???  
+  def balance(chars: Array[Char]): Boolean = {
+    val len = chars.size
+
+    def count(acc:Int,c: Char) =
+      c match {
+          case '(' => acc + 1
+          // uncancellable negative
+          case ')' if (acc <= 0) => -len
+          case ')' => acc - 1
+          case _ => acc
+      }
+
+    // detecting ')'
+    (chars.foldLeft(0)(count)) == 0
   }
 
   /**
-   * Returns `true` iff the parentheses in the input `chars` are balanced.
+   * Returns `true` iff the parentheses in the input `chars` are
+   * balanced.
    */
   def parBalance(chars: Array[Char], threshold: Int): Boolean = {
 
-    def traverse(idx: Int, until: Int, arg1: Int, arg2: Int) /*: ???*/ = {
+    def traverse( idx: Int, until: Int,
+                 arg1: Int, arg2 : Int )/*: ???*/ = {
       ???
     }
 
@@ -64,10 +81,8 @@ object ParallelParenthesesBalancing {
     }
 
     reduce(0, chars.length) == ???
-
   }
 
   // For those who want more:
   // Prove that your reduction operator is associative!
-
 }
