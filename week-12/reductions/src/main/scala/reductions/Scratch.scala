@@ -34,12 +34,26 @@ object Scratch {
     unbalanced.foreach((s:String) => println(s"unbalanced:$s"+ !balance(s.toArray)))
   }
 
+  def tryParallelBalance() {
+    // balanced
+    val balanced = List[String]("(if (zero? x) max (/ 1 x))",
+                                "I told him (that it's not (yet) done). (But he wasn't listening)")
+    // unbalanced
+    val unbalanced = List[String]("(o_()",":-)","())(",
+                                  ")(","((","))",".)",".(","(.",").")
+    // parBalance     
+    println("parBalance:" 
+            + parBalance(unbalanced(0).toArray,threshold = 2, debug = true))
+    
+  }
+
   /**
    * Number of ways to change coins.
    */
   def main() {
-    tryCountChange()
-    tryParenBalance()
+    // tryCountChange()
+    // tryParenBalance()
+    tryParallelBalance()
   }
 
 }
