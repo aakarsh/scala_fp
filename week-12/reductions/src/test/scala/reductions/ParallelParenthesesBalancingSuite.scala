@@ -31,7 +31,6 @@ class ParallelParenthesesBalancingSuite extends FunSuite {
   }
 
   test("balance should work for string of length 2") {
-
     def check(input: String, expected: Boolean) =
       assert(balance(input.toArray) == expected,
         s"balance($input) should be $expected")
@@ -44,11 +43,9 @@ class ParallelParenthesesBalancingSuite extends FunSuite {
     check(".(", false)
     check("(.", false)
     check(").", false)
-
   }
 
   test("Test parallel balancing") {
-
     def check(input: String, expected: Boolean) =
       assert(parBalance(input.toArray,5) == expected ,
              s"parBalance.($input) should be $expected")
