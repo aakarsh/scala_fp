@@ -151,7 +151,7 @@ object LineOfSight {
                      output: Array[Float],
                      threshold: Int): Unit = {
     //parLineOfSight
-    val tree = upsweep(input,0,input.size-1,threshold)
+    val tree = upsweep(input,0,input.size,threshold)
     downsweep(input,output,0,tree)
   }
 
