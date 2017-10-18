@@ -64,33 +64,25 @@ class KMeans {
    * is independent of others, that is each point can
    * be classified fully independently of the
    * other points near the means.
-   *
    */
   def classify(points: GenSeq[Point],
                means:  GenSeq[Point]): GenMap[Point, GenSeq[Point]] = {
-
     /**
-     * TODO : Use ...
-     * 
-     * 1. (groupBy)
-     * 
-     * 2. (findClosest)
-     * 
-     * 3. Make sure all the means are in GenMap.
-     *    even if GenSeq for them is empty.
+     * Map point to its closest mean.
      */
-    var map  =points.groupBy((p:Point) => findClosest(p,means))
-    for(meanPoint <- means) {
-      if( !map.contains(meanPoint)) {
-        map += (meanPoint -> GenSeq[Point]())
-      }
-    }
-    map
+    val map  = points.groupBy( (p:Point) => findClosest(p,means))
+    /**
+     * For means far away from any points use
+     * empty sequence point list.
+     */
+    val absentMeans : GenSeq[Point] = means.filter(! map.contains(_))
+    // Point map along with any absent means
+    map ++ absentMeans.map((_ -> GenSeq[Point]()))
   }
 
   /**
-   * Average is simply the average of each corresponding coordinate of
-   * the point.
+   * Average is simply the average of each
+   * corresponding coordinate of the point.
    */
   def findAverage(oldMean: Point,
                   points : GenSeq[Point]): Point =
@@ -100,8 +92,7 @@ class KMeans {
       //  { x_total, y_total, z_total }
       var ( x_total, y_total, z_total ) = (0.0, 0.0, 0.0)
       val n = points.length
-
-      // each.individual.point.in: (x, y, z)
+      // Each individual point.in: (x, y, z)
       points.seq.foreach {
         ( p:Point ) => {
           x_total += p.x
@@ -113,20 +104,38 @@ class KMeans {
     }
 
   /**
-   * Update means corresponding to different clusters.
+   * Take classified set of points for each classified
+   * set compute new means average.
    */
   def update(classified: GenMap[Point,   GenSeq[Point]],
              oldMeans:   GenSeq[Point]): GenSeq[Point] = {
-    
-    ???
+    // update ...
+    val newMeans = classified.map({
+      case (oldMean,points) =>
+        (oldMean,findAverage(oldMean, points))
+    })
+
+    oldMeans.map({
+      (mean:Point) =>
+      if(newMeans.contains(mean))
+        newMeans(mean)
+      else mean // preserve unclassified means
+    })
   }
 
   /**
-   *
+   * Compare oldMeans and newMeans to check if
+   * there exists a difference of at least (eta)
    */
-  def converged(eta: Double)(oldMeans: GenSeq[Point],
-                             newMeans: GenSeq[Point]): Boolean = {
-    ???
+  def converged(eta: Double)
+               (oldMeans: GenSeq[Point],
+                newMeans: GenSeq[Point] ): Boolean = {
+    val diffList =
+      oldMeans.zip(newMeans).filter({
+        case (oldMean, newMean) =>
+          oldMean.squareDistance(newMean) > eta
+      })    
+    !(diffList.size > 0)
   }
 
   /**
@@ -136,10 +145,15 @@ class KMeans {
   final def kMeans(points: GenSeq[Point],
                    means:  GenSeq[Point],
                    eta: Double): GenSeq[Point] = {
-    // your implementation need to be tail recursive.
-    if (???) kMeans(???, ???, ???) else ???
-  }
-
+    // Classify points into new means
+    val newClassification =  classify(points,means)
+    val newMeans = update(newClassification, means)
+    if (!converged(eta)(means,newMeans)) {
+      kMeans(points, newMeans, eta)
+    } else {
+      newMeans
+    }
+   }
 }
 
 /**
