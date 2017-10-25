@@ -3,75 +3,183 @@ import barneshut.conctrees._
 
 package object barneshut {
 
+  /**
+   * Boundaries -
+   *
+   */
   class Boundaries {
+
     var minX = Float.MaxValue
-
     var minY = Float.MaxValue
-
     var maxX = Float.MinValue
-
     var maxY = Float.MinValue
 
-    def width = maxX - minX
+    def width =
+      maxX - minX
 
-    def height = maxY - minY
+    def height =
+      maxY - minY
 
-    def size = math.max(width, height)
+    def size =
+      math.max(width, height)
 
-    def centerX = minX + width / 2
+    def centerX =
+      minX + width / 2
 
-    def centerY = minY + height / 2
+    def centerY =
+      minY + height / 2
 
     override def toString = s"Boundaries($minX, $minY, $maxX, $maxY)"
   }
 
   sealed abstract class Quad {
     def massX: Float
-
     def massY: Float
-
     def mass: Float
-
     def centerX: Float
-
     def centerY: Float
-
     def size: Float
-
     def total: Int
-
     def insert(b: Body): Quad
   }
 
-  case class Empty(centerX: Float, centerY: Float, size: Float) extends Quad {
-    def massX: Float = ???
-    def massY: Float = ???
-    def mass: Float = ???
-    def total: Int = ???
-    def insert(b: Body): Quad = ???
+  /**
+   * In the quad tree an Empty node represents a region not containing any
+   * sub Quads and not containing any bodies.
+   */
+  case class Empty(centerX : Float,
+                   centerY : Float,
+                   size    : Float) extends Quad {
+    /**
+     * Since there is no internal bodies its center of mass
+     * is considered to be same as its center.
+     */
+    def massX: Float = centerX
+    def massY: Float = centerY
+
+    def mass:  Float = 0
+    def total: Int   = 0
+
+    /**
+     * Inserting into an Empty Quad tree node
+     * will cause it to change into a Leaf.
+     */
+    def insert(b: Body): Quad = new Leaf(centerX,centerY,size,List(b))
   }
+  
+  /**
+   * Fork 
+   */
+  case class Fork(nw: Quad, 
+                  ne: Quad, 
+                  sw: Quad, 
+                  se: Quad) extends Quad {
 
-  case class Fork(
-    nw: Quad, ne: Quad, sw: Quad, se: Quad
-  ) extends Quad {
-    val centerX: Float = ???
-    val centerY: Float = ???
-    val size: Float = ???
-    val mass: Float = ???
-    val massX: Float = ???
-    val massY: Float = ???
-    val total: Int = ???
+    val centerX: Float = nw.centerX + ( nw.size / 2)
+    val centerY: Float = nw.centerY + ( nw.size / 2)
+    val size:    Float = nw.size * 2 // assuming dqual size of all four quads
+    val mass:    Float = nw.mass + ne.mass + sw.mass + se.mass
+    val massX:   Float = (nw.mass * nw.massX) + (ne.mass * ne.massX) + (sw.mass * sw.massX) + (se.mass * se.massX)
+    val massY:   Float = (nw.mass * nw.massY) + (ne.mass * ne.massY) + (sw.mass * sw.massY) + (se.mass * se.massY)
+    val total:   Int   = nw.total + ne.total + sw.total + se.total
 
-    def insert(b: Body): Fork = {
-      ???
+    /**
+     * Inserting into a fork is a recursive process.
+     */
+    def insert(b: Body): Fork = {      
+      (b.x,b.y)  match {
+        case (x, y) if (x <= centerX && y <= centerY) => new Fork(nw.insert(b),ne,sw,se)
+        case (x, y) if (x >  centerX && y <= centerY) => new Fork(nw,ne.insert(b),sw,se)
+        case (x, y) if (x <= centerX && y >  centerY) => new Fork(nw,ne,sw.insert(b),se)
+        case (x, y) if (x >  centerX && y >  centerY) => new Fork(nw,ne,sw,se.insert(b))
+      }
     }
   }
 
-  case class Leaf(centerX: Float, centerY: Float, size: Float, bodies: Seq[Body])
-  extends Quad {
-    val (mass, massX, massY) = (??? : Float, ??? : Float, ??? : Float)
-    val total: Int = ???
-    def insert(b: Body): Quad = ???
+  /**
+   * Leaf is a squence of bodies.
+   *
+   * If the size of the Leaf is greater
+   * than a predefined constant minimumSize.
+   *
+   * Inserting into the leaf node will cause it
+   * to turn into a fork. If the size is small
+   * enough additional inserts will certainly cause
+   * the leaf to turn into a fork on the
+   * second insert.
+   *
+   */
+  case class Leaf(centerX: Float, centerY: Float,
+                  size: Float, bodies: Seq[Body]) extends Quad {
+
+    // total-mass of all bodies.
+    def totalMass(bodies:Seq[Body]):Float =
+      bodies.map(_.mass).sum
+
+    // dot-product of two vectors.
+    def dot(v1:Seq[Float], v2:Seq[Float]): Float = (v1,v2).zipped.map(_*_).sum
+
+    /**
+     * Mass is the sum of masses of all bodies, massX and massY
+     * represent the inertial centers of respective bodies.
+     */
+    val (mass, massX, massY) = (totalMass(bodies),
+                                // m_x - inertial mass along the x coordinate
+                                dot(bodies.map(_.mass), bodies.map(_.x)),
+                                // m_y - inertial mass along the y coordinate
+                                dot(bodies.map(_.mass), bodies.map(_.y)))
+
+    // total number of bodies.
+    val total: Int = bodies.size
+
+    /**
+     * While inserting a body into the leaf we check the leaf size.
+     * if it is greater than the minimum size then we will insert
+     */
+    def insert(body: Body): Quad = {
+      // split leaf
+      if( size >= minimumSize ) {
+
+        val delta   = size / 4
+        val quadLen = size / 2
+
+        // [fork]-Map: To a particular sector: { nw-0, ne-1, se-2 , sw-3 }
+        def sector(b: Body): Int = {
+          (b.x,b.y) match {
+            case (x,y) if (x <= centerX && y <= centerY) => 0 // NW
+            case (x,y) if (x >  centerX && y <= centerY) => 1 // NE
+            case (x,y) if (x <= centerX && y >  centerY) => 2 // SE
+            case (x,y) if (x >  centerX && y >  centerY) => 3 // SW
+          }
+        }
+
+        // partition the objects into (one of four) coordinates spaces.
+        // compute where in the partitioned space the body will lie
+        // {nw-0, ne-1, se-2 , sw-3}
+        val groupMap : Map[Int, Seq[Body]] = (body::bodies.toList).groupBy(sector)
+
+        // Create list of bodies sorted by sector in order {nw, ne, se, sw}
+        val groups = groupMap.toList.sortBy(_._1).map({case (sec, bodies) => bodies})
+
+        // [Maybe better way] : (-,-):0,(+,-):1,(-,+):2,(+,+):3
+        // Construct deltas from current center to center of the four new quads.
+        val deltas  =
+          for(i <- List(-1,1);
+              j <- List(-1,1)) yield (j * delta, i * delta)
+
+        val centers = deltas.map(d => (centerX + d._1 ,centerY + d._2))
+        val centerGroups = (centers, groups).zipped
+
+        val nodes =
+          centerGroups.map(
+            { case (c,g) if g.isEmpty =>  new Empty(c._1, c._2, quadLen)
+              case (c,g) => new Leaf(c._1,c._2, quadLen, g)
+            })
+        new Fork(nodes(0), nodes(1), nodes(2), nodes(3))
+      } else {
+        new Leaf(centerX,centerY,size,body::bodies.toList)
+      }
+    }
   }
 
   def minimumSize = 0.00001f
@@ -84,19 +192,34 @@ package object barneshut {
 
   def eliminationThreshold = 0.5f
 
-  def force(m1: Float, m2: Float, dist: Float): Float = gee * m1 * m2 / (dist * dist)
+  def force(m1: Float,
+            m2: Float,
+            dist: Float): Float =
+    gee * m1 * m2 / (dist * dist)
 
-  def distance(x0: Float, y0: Float, x1: Float, y1: Float): Float = {
-    math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0)).toFloat
+  def distance(x0: Float,
+               y0: Float,
+               x1: Float,
+               y1: Float): Float = {
+    math.sqrt(  (x1 - x0) * (x1 - x0)
+              + (y1 - y0) * (y1 - y0)).toFloat
   }
 
-  class Body(val mass: Float, val x: Float, val y: Float, val xspeed: Float, val yspeed: Float) {
+  class Body(val mass: Float,
+             val x: Float,
+             val y: Float,
+             val xspeed: Float,
+             val yspeed: Float) {
 
     def updated(quad: Quad): Body = {
+
       var netforcex = 0.0f
       var netforcey = 0.0f
 
-      def addForce(thatMass: Float, thatMassX: Float, thatMassY: Float): Unit = {
+      def addForce(thatMass: Float,
+                   thatMassX: Float,
+                   thatMassY: Float): Unit = {
+
         val dist = distance(thatMassX, thatMassY, x, y)
         /* If the distance is smaller than 1f, we enter the realm of close
          * body interactions. Since we do not model them in this simplistic
@@ -142,22 +265,72 @@ package object barneshut {
 
   val SECTOR_PRECISION = 8
 
-  class SectorMatrix(val boundaries: Boundaries, val sectorPrecision: Int) {
+  /**
+   * Sector matrix is the biggest square border which includes all
+   * the boundary rectangles.  A sector matrix will contain
+   * (sectorPrecision * sectorPrecision) cells.
+   *
+   * Internally sector matrix represents the sector cells as a linear array
+   * of CocnBuffer[Body] where concbuffer can be considered as a buffer
+   * with efficient parallel list implementation of list of Body objects.
+   *
+   * Together the ConcBuffer[Body] of a particular cell contains list of all
+   * body objects present in that cell.
+   *
+   */
+  class SectorMatrix(val boundaries: Boundaries,
+                     val sectorPrecision: Int) {
+
     val sectorSize = boundaries.size / sectorPrecision
     val matrix = new Array[ConcBuffer[Body]](sectorPrecision * sectorPrecision)
     for (i <- 0 until matrix.length) matrix(i) = new ConcBuffer
 
-    def +=(b: Body): SectorMatrix = {
-      ???
+
+    /**
+     * Used to add a body to sector-matrix:
+     *
+     * 1. Compute the appropriate cell in which to add the body
+     * 2. Use the underlying ConcBuffer[Body] to add the object
+     *
+     */
+    def +=(b: Body) : SectorMatrix = {
+
+      def sector(x:Float,
+                 min:Float,
+                 max:Float,
+                 size:Float = sectorSize): Int = {
+        // Round x to min or max if it exceeds either one of them.
+        val v =
+          if(x < min)  min
+          else if( x > max) max
+          else x
+        // Find the correct sector
+        (v/size).toInt
+      }
+
+      var (secX:Int, secY:Int) = (sector(b.x, boundaries.minX, boundaries.maxX),
+                                  sector(b.y, boundaries.minY, boundaries.maxY))
+
+      this(secX, secY) += b
       this
     }
 
     def apply(x: Int, y: Int) = matrix(y * sectorPrecision + x)
 
-    def combine(that: SectorMatrix): SectorMatrix = {
-      ???
+    /**
+     * Combine this and that sector matrix.
+     */
+    def combine(that: SectorMatrix): SectorMatrix = { // AN:
+      // go through ConcBuffer lists and combine them
+      for(i <- 0 until matrix.length)
+        matrix(i) = this.matrix(i).combine(that.matrix(i))
+      this
     }
 
+    /**
+     * Takes a parallelism threshold and goes on to
+     * do the balancing.
+     */
     def toQuad(parallelism: Int): Quad = {
       def BALANCING_FACTOR = 4
       def quad(x: Int, y: Int, span: Int, achievedParallelism: Int): Quad = {
@@ -186,7 +359,6 @@ package object barneshut {
           Fork(nw, ne, sw, se)
         }
       }
-
       quad(0, 0, sectorPrecision, 1)
     }
 

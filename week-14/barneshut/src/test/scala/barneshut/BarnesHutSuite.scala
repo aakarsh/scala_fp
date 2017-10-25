@@ -98,14 +98,26 @@ import FloatOps._
   }
 
   // test cases for sector matrix
-
+  /**
+   * PASS
+   */
   test("'SectorMatrix.+=' should add a body at (25,47) to the correct bucket of a sector matrix of size 96") {
+    // (x = 25, y = 47)
     val body = new Body(5, 25, 47, 0.1f, 0.1f)
     val boundaries = new Boundaries()
+
     boundaries.minX = 1
     boundaries.minY = 1
     boundaries.maxX = 97
     boundaries.maxY = 97
+
+    // Sector Precision =  8
+    // We have a 64-buckets, 8 in each row [ (/ 97 8) = 12 ]
+    // From (1,1) to (97, 97) -- which means we will have 12 cells per row
+    // Creating the boundaries 
+    // (/ 25 12) = 2
+    // (/ 47 12) = 3 
+    // Thus we expect the conc buffer at (2,3) to contain  the added body
     val sm = new SectorMatrix(boundaries, SECTOR_PRECISION)
     sm += body
     val res = sm(2, 3).size == 1 && sm(2, 3).find(_ == body).isDefined
