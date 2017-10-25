@@ -192,17 +192,17 @@ package object barneshut {
 
   def eliminationThreshold = 0.5f
 
-  def force(m1: Float,
-            m2: Float,
-            dist: Float): Float =
+  /**
+   * Compute the gravitational force between two bodies. 
+   */
+  def force(m1: Float, m2: Float, dist: Float): Float =
     gee * m1 * m2 / (dist * dist)
-
-  def distance(x0: Float,
-               y0: Float,
-               x1: Float,
-               y1: Float): Float = {
-    math.sqrt(  (x1 - x0) * (x1 - x0)
-              + (y1 - y0) * (y1 - y0)).toFloat
+  
+  /**
+   * Euclidean distance between (x0,y0) and (x1,y1)
+   */
+  def distance(x0: Float, y0: Float, x1: Float, y1: Float): Float = {
+    math.sqrt( (x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0)).toFloat
   }
 
   class Body(val mass: Float,
@@ -211,53 +211,96 @@ package object barneshut {
              val xspeed: Float,
              val yspeed: Float) {
 
+    /**
+     * Compute the updated position of the body based on traversing
+     * QuadTree which provides an efficient representation of all
+     * other bodies in QuadTree.
+     */
     def updated(quad: Quad): Body = {
 
       var netforcex = 0.0f
       var netforcey = 0.0f
 
-      def addForce(thatMass: Float,
-                   thatMassX: Float,
-                   thatMassY: Float): Unit = {
+      /**
+       * Compute the force exerted by a particular mass and add it to
+       * the netforce being computed.
+       */
+      def addForce(thatMass: Float, 
+                   thatMassX: Float, thatMassY: Float): Unit = {
 
+        // euclidiean distance between the masses.
         val dist = distance(thatMassX, thatMassY, x, y)
-        /* If the distance is smaller than 1f, we enter the realm of close
+
+        /**
+         * 
+         * If the distance is smaller than 1f, we enter the realm of close
          * body interactions. Since we do not model them in this simplistic
          * implementation, bodies at extreme proximities get a huge acceleration,
          * and are catapulted from each other's gravitational pull at extreme
          * velocities (something like this:
+         * 
          * http://en.wikipedia.org/wiki/Interplanetary_spaceflight#Gravitational_slingshot).
+         *
          * To decrease the effect of this gravitational slingshot, as a very
          * simple approximation, we ignore gravity at extreme proximities.
          */
-        if (dist > 1f) {
+        if (dist > 1f) { 
+
+          // Net force on this body exerted by that mass.
           val dforce = force(mass, thatMass, dist)
+          
+          // Direction of the force
           val xn = (thatMassX - x) / dist
           val yn = (thatMassY - y) / dist
+
+          // Force component in x direction
           val dforcex = dforce * xn
+          // Force component in the y direction.
           val dforcey = dforce * yn
+
+          // Each mass will add to the total-force in (F_x and F_y)
+          // directions which will apply to current object.
           netforcex += dforcex
           netforcey += dforcey
         }
       }
 
-      def traverse(quad: Quad): Unit = (quad: Quad) match {
-        case Empty(_, _, _) =>
-          // no force
+      /**
+       * Traverse the quad tree using summarizing masses for
+       * far away bodies.
+       */
+      def traverse(quad: Quad): Unit = (quad: Quad) match {          
+        case Empty(_, _, _) =>          
+        // no body, no force        
         case Leaf(_, _, _, bodies) =>
           // add force contribution of each body by calling addForce
-        case Fork(nw, ne, sw, se) =>
-          // see if node is far enough from the body,
-          // or recursion is needed
-      }
+          addForce(quad.mass,quad.massX,quad.massY)
 
+        case Fork(nw, ne, sw, se) =>           
+          // Determine whether we need to use a threshold.
+          val dist = distance(quad.massX, quad.massY, x, y)
+          if(quad.size / dist < theta) { // dont recurse if too far
+            addForce(quad.mass,quad.massX,quad.massY)
+          } else {
+            List(nw,ne,sw,se).map(traverse)
+          }
+      }
+      
       traverse(quad)
 
+      // Use old speed to compute new poistion of the body
+      // delta represents the fractional time interval 
       val nx = x + xspeed * delta
       val ny = y + yspeed * delta
-      val nxspeed = xspeed + netforcex / mass * delta
-      val nyspeed = yspeed + netforcey / mass * delta
 
+      /**
+       * a = f/m : Used to compute new speed
+       * Use new acceleration to compute new speed of the object.
+       */
+      val nxspeed = xspeed + (netforcex / mass) * delta
+      val nyspeed = yspeed + (netforcey / mass) * delta
+
+      // return body with new position and new velocity
       new Body(mass, nx, ny, nxspeed, nyspeed)
     }
 
