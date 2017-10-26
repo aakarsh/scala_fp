@@ -9,64 +9,100 @@ import scala.collection.parallel.Combiner
 import scala.collection.parallel.mutable.ParHashSet
 import common._
 
-class Simulator(val taskSupport: TaskSupport, 
+class Simulator(val taskSupport: TaskSupport,
                 val timeStats  : TimeStatistics) {
 
+
   /**
-   * [updateBoundaries]
+   * Since boundaries will change for each body after they have been
+   * moved all boundaries will need to be recomputed at each step.
    */
-  def updateBoundaries(boundaries: Boundaries, 
-                       body: Body): Boundaries = {
-    // [updateBoundaries]
-    // compute min
+
+  /**
+   * Updates the boundaries to include the body.
+   */
+  def updateBoundaries(boundaries: Boundaries, body: Body): Boundaries = {
+    // [updateBoundaries] - compute min
+
     boundaries.minX = math.min(boundaries.minX, body.x)
     boundaries.minY = math.min(boundaries.minY, body.y)
-    // compute max 
+    // compute max
     boundaries.maxX = math.max(boundaries.maxX, body.x)
-    boundaries.maxY = math.max(boundaries.maxY, body.y)    
+    boundaries.maxY = math.max(boundaries.maxY, body.y)
+
     boundaries
   }
 
   /**
    * [mergeBoundaries]
    */
-  def mergeBoundaries(a: Boundaries, 
+  def mergeBoundaries(a: Boundaries,
                       b: Boundaries): Boundaries = {
     // [mergeBoundaries]
-    ???
+    val  enclosing = new Boundaries()
+    enclosing.minX = math.min(a.minX,b.minX)
+    enclosing.minY = math.min(a.minY,b.minY)
+
+    enclosing.maxX = math.max(a.maxX,b.maxX)
+    enclosing.maxY = math.max(a.maxY,b.maxY)
+
+    enclosing
   }
 
   // [computeBoundaries]
   def computeBoundaries(bodies: Seq[Body]): Boundaries =
     timeStats.timed("boundaries") {
+      // parallel bodies.
       val parBodies = bodies.par
       parBodies.tasksupport = taskSupport
       parBodies.aggregate(new Boundaries)(updateBoundaries, mergeBoundaries)
     }
-  
-  // computeSectorMatrix
-  def computeSectorMatrix(bodies: Seq[Body], 
+
+  /**
+   * Uses {SECTOR_PRECISION}.
+   */
+  def computeSectorMatrix(bodies: Seq[Body],
                           boundaries: Boundaries): SectorMatrix =
     timeStats.timed("matrix") {
+      // start with parallel bodies ...
       val parBodies = bodies.par
       parBodies.tasksupport = taskSupport
+      // parBodies.aggregate( new SectorMatrix() )
       ???
     }
 
+  /**
+   * Takes as input a SectorMatrix  and constructs a QuadTree
+   * representing the region
+   */
   def computeQuad(sectorMatrix: SectorMatrix): Quad =
     timeStats.timed("quad") {
       sectorMatrix.toQuad(taskSupport.parallelismLevel)
     }
 
-  def updateBodies(bodies: Seq[Body],
-                   quad: Quad): Seq[Body] =
+  /**
+   * Takes a sequence of bodies and an existing quad tree
+   * and computes forces on each body wrt other bodies,
+   * updating their position. Uses aggregate to update,merge
+   * list of bodeis
+   */
+  def updateBodies(bodies: Seq[Body], quad: Quad): Seq[Body] =
     timeStats.timed("update") {
+      import scala.collection.immutable.List
+
       val parBodies = bodies.par
       parBodies.tasksupport = taskSupport
-      ???
+
+      def update (acc: List[Body], b: Body) : List[Body] = b.updated(quad) :: acc
+      def merge  (b1: List[Body], 
+                  b2: List[Body]) : List[Body] = b1 ::: b2
+
+      val empty = List[Body]()
+      
+      parBodies.aggregate(empty)(update,merge)
     }
 
-  def eliminateOutliers(bodies: Seq[Body], 
+  def eliminateOutliers(bodies: Seq[Body],
                         sectorMatrix: SectorMatrix,
                         quad: Quad): Seq[Body] =
 

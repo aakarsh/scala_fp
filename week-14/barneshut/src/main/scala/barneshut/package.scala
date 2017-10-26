@@ -330,23 +330,23 @@ package object barneshut {
 
 
     /**
-     * Used to add a body to sector-matrix:
+     * Used to add a body to SectorMatrix :
      *
-     * 1. Compute the appropriate cell in which to add the body
-     * 2. Use the underlying ConcBuffer[Body] to add the object
-     *
+     * 1. Compute the appropriate cell in which to add the body.
+     * 2. Use the underlying ConcBuffer[Body] to add the object.
+     * 3. 
      */
     def +=(b: Body) : SectorMatrix = {
-
-      def sector(x:Float,
-                 min:Float,
-                 max:Float,
-                 size:Float = sectorSize): Int = {
+      /**
+       * size - Length of each sector.
+       */
+      def sector(x: Float, min: Float, max: Float, size: Float = sectorSize): Int = {
         // Round x to min or max if it exceeds either one of them.
         val v =
-          if(x < min)  min
+          if(x < min) min
           else if( x > max) max
           else x
+
         // Find the correct sector
         (v/size).toInt
       }
