@@ -79,8 +79,8 @@ package object barneshut {
     val centerY: Float = nw.centerY + ( nw.size / 2)
     val size:    Float = nw.size * 2 // assuming dqual size of all four quads
     val mass:    Float = nw.mass + ne.mass + sw.mass + se.mass
-    val massX:   Float = (nw.mass * nw.massX) + (ne.mass * ne.massX) + (sw.mass * sw.massX) + (se.mass * se.massX)
-    val massY:   Float = (nw.mass * nw.massY) + (ne.mass * ne.massY) + (sw.mass * sw.massY) + (se.mass * se.massY)
+    val massX:   Float = ((nw.mass * nw.massX) + (ne.mass * ne.massX) + (sw.mass * sw.massX) + (se.mass * se.massX)) / mass
+    val massY:   Float = ((nw.mass * nw.massY) + (ne.mass * ne.massY) + (sw.mass * sw.massY) + (se.mass * se.massY)) / mass
     val total:   Int   = nw.total + ne.total + sw.total + se.total
 
     /**
@@ -123,11 +123,12 @@ package object barneshut {
      * Mass is the sum of masses of all bodies, massX and massY
      * represent the inertial centers of respective bodies.
      */
-    val (mass, massX, massY) = (totalMass(bodies),
-                                // m_x - inertial mass along the x coordinate
-                                dot(bodies.map(_.mass), bodies.map(_.x)),
-                                // m_y - inertial mass along the y coordinate
-                                dot(bodies.map(_.mass), bodies.map(_.y)))
+    val mass = totalMass(bodies)
+    val ( massX, massY) = (
+      // m_x - inertial mass along the x coordinate
+      dot(bodies.map(_.mass), bodies.map(_.x)) / mass,
+      // m_y - inertial mass along the y coordinate
+      dot(bodies.map(_.mass), bodies.map(_.y)) / mass)
 
     // total number of bodies.
     val total: Int = bodies.size
@@ -274,7 +275,13 @@ package object barneshut {
         // no body, no force        
         case Leaf(_, _, _, bodies) =>
           // add force contribution of each body by calling addForce
-          addForce(quad.mass,quad.massX,quad.massY)
+          val dist = distance(quad.massX, quad.massY, x, y)
+          if(quad.size / dist < theta) {
+            addForce(quad.mass,quad.massX,quad.massY)
+          } else {
+            bodies.foreach(body => addForce(body.mass,body.x,body.y))
+          }
+
 
         case Fork(nw, ne, sw, se) =>           
           // Determine whether we need to use a threshold.

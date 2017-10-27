@@ -20,9 +20,11 @@ class Simulator(val taskSupport: TaskSupport,
 
   /**
    * Updates the boundaries to include the body.
+   * 
+   * updateBoundaries :- compute minimum
    */
-  def updateBoundaries(boundaries: Boundaries, body: Body): Boundaries = {
-    // [updateBoundaries] - compute min
+  def updateBoundaries(boundaries:  Boundaries, 
+                       body: Body): Boundaries = {
 
     boundaries.minX = math.min(boundaries.minX, body.x)
     boundaries.minY = math.min(boundaries.minY, body.y)
@@ -33,12 +35,8 @@ class Simulator(val taskSupport: TaskSupport,
     boundaries
   }
 
-  /**
-   * [mergeBoundaries]
-   */
-  def mergeBoundaries(a: Boundaries,
-                      b: Boundaries): Boundaries = {
-    // [mergeBoundaries]
+  def mergeBoundaries(a: Boundaries, b: Boundaries): Boundaries = {
+
     val  enclosing = new Boundaries()
     enclosing.minX = math.min(a.minX,b.minX)
     enclosing.minY = math.min(a.minY,b.minY)
@@ -49,26 +47,34 @@ class Simulator(val taskSupport: TaskSupport,
     enclosing
   }
 
-  // [computeBoundaries]
   def computeBoundaries(bodies: Seq[Body]): Boundaries =
     timeStats.timed("boundaries") {
       // parallel bodies.
       val parBodies = bodies.par
       parBodies.tasksupport = taskSupport
-      parBodies.aggregate(new Boundaries)(updateBoundaries, mergeBoundaries)
+      val empty = new Boundaries
+      
+      parBodies.aggregate(empty)(updateBoundaries, mergeBoundaries)
     }
 
-  /**
-   * Uses {SECTOR_PRECISION}.
-   */
   def computeSectorMatrix(bodies: Seq[Body],
                           boundaries: Boundaries): SectorMatrix =
     timeStats.timed("matrix") {
-      // start with parallel bodies ...
       val parBodies = bodies.par
       parBodies.tasksupport = taskSupport
-      // parBodies.aggregate( new SectorMatrix() )
-      ???
+
+      val empty = new SectorMatrix(boundaries, SECTOR_PRECISION)
+
+      def update(acc: SectorMatrix, body: Body):SectorMatrix  = {
+        acc += body
+        acc
+      }
+
+      def merge(s1: SectorMatrix, 
+                s2: SectorMatrix): SectorMatrix =
+        s1.combine(s2)
+
+      parBodies.aggregate(empty)(update,merge)
     }
 
   /**
@@ -93,13 +99,13 @@ class Simulator(val taskSupport: TaskSupport,
       val parBodies = bodies.par
       parBodies.tasksupport = taskSupport
 
-      def update (acc: List[Body], b: Body) : List[Body] = b.updated(quad) :: acc
-      def merge  (b1: List[Body], 
-                  b2: List[Body]) : List[Body] = b1 ::: b2
+      def update (acc: List[Body], b:  Body) : List[Body]       = b.updated(quad)::acc
+      def merge  (b1 :  List[Body],b2: List[Body]) : List[Body] = b1 ::: b2
 
+      // unit object.
       val empty = List[Body]()
       
-      parBodies.aggregate(empty)(update,merge)
+      parBodies.aggregate(empty)(update, merge)
     }
 
   def eliminateOutliers(bodies: Seq[Body],
