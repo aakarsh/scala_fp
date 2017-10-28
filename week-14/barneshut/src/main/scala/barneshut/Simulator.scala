@@ -12,7 +12,6 @@ import common._
 class Simulator(val taskSupport: TaskSupport,
                 val timeStats  : TimeStatistics) {
 
-
   /**
    * Since boundaries will change for each body after they have been
    * moved all boundaries will need to be recomputed at each step.
@@ -20,10 +19,10 @@ class Simulator(val taskSupport: TaskSupport,
 
   /**
    * Updates the boundaries to include the body.
-   * 
+   *
    * updateBoundaries :- compute minimum
    */
-  def updateBoundaries(boundaries:  Boundaries, 
+  def updateBoundaries(boundaries:  Boundaries,
                        body: Body): Boundaries = {
 
     boundaries.minX = math.min(boundaries.minX, body.x)
@@ -35,46 +34,50 @@ class Simulator(val taskSupport: TaskSupport,
     boundaries
   }
 
-  def mergeBoundaries(a: Boundaries, b: Boundaries): Boundaries = {
-
+  def mergeBoundaries(a: Boundaries,
+                      b: Boundaries): Boundaries = {
     val  enclosing = new Boundaries()
-    enclosing.minX = math.min(a.minX,b.minX)
-    enclosing.minY = math.min(a.minY,b.minY)
-
-    enclosing.maxX = math.max(a.maxX,b.maxX)
-    enclosing.maxY = math.max(a.maxY,b.maxY)
-
+    //
+    enclosing.minX = math.min(a.minX, b.minX)
+    enclosing.minY = math.min(a.minY, b.minY)
+    //
+    enclosing.maxX = math.max(a.maxX, b.maxX)
+    enclosing.maxY = math.max(a.maxY, b.maxY)
+    //
     enclosing
   }
 
   def computeBoundaries(bodies: Seq[Body]): Boundaries =
     timeStats.timed("boundaries") {
-      // parallel bodies.
+
+      // Parallel Bodies
       val parBodies = bodies.par
       parBodies.tasksupport = taskSupport
       val empty = new Boundaries
-      
+
       parBodies.aggregate(empty)(updateBoundaries, mergeBoundaries)
     }
 
   def computeSectorMatrix(bodies: Seq[Body],
                           boundaries: Boundaries): SectorMatrix =
     timeStats.timed("matrix") {
+
       val parBodies = bodies.par
       parBodies.tasksupport = taskSupport
 
-      val empty = new SectorMatrix(boundaries, SECTOR_PRECISION)
+      val empty = new SectorMatrix(boundaries, 
+                                   SECTOR_PRECISION)
 
-      def update(acc: SectorMatrix, body: Body):SectorMatrix  = {
+      def update(acc: SectorMatrix,
+                 body: Body): SectorMatrix  = {
         acc += body
         acc
       }
 
-      def merge(s1: SectorMatrix, 
-                s2: SectorMatrix): SectorMatrix =
-        s1.combine(s2)
+      def merge(s1: SectorMatrix ,
+                s2: SectorMatrix ): SectorMatrix = s1.combine(s2)
 
-      parBodies.aggregate(empty)(update,merge)
+      parBodies.aggregate(empty)(update, merge)
     }
 
   /**
@@ -83,7 +86,7 @@ class Simulator(val taskSupport: TaskSupport,
    */
   def computeQuad(sectorMatrix: SectorMatrix): Quad =
     timeStats.timed("quad") {
-      sectorMatrix.toQuad(taskSupport.parallelismLevel)
+      sectorMatrix.toQuad( taskSupport.parallelismLevel )
     }
 
   /**
@@ -104,7 +107,7 @@ class Simulator(val taskSupport: TaskSupport,
 
       // unit object.
       val empty = List[Body]()
-      
+
       parBodies.aggregate(empty)(update, merge)
     }
 

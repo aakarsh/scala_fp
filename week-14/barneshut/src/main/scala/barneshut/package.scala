@@ -5,7 +5,6 @@ package object barneshut {
 
   /**
    * Boundaries -
-   *
    */
   class Boundaries {
 
@@ -30,26 +29,30 @@ package object barneshut {
       minY + height / 2
 
     override def toString = s"Boundaries($minX, $minY, $maxX, $maxY)"
+
   }
 
   sealed abstract class Quad {
+
     def massX: Float
     def massY: Float
-    def mass: Float
+    def mass:  Float
     def centerX: Float
     def centerY: Float
     def size: Float
     def total: Int
+
     def insert(b: Body): Quad
   }
 
   /**
-   * In the quad tree an Empty node represents a region not containing any
-   * sub Quads and not containing any bodies.
+   * In the quad tree an Empty node represents a region not containing
+   * any sub Quads and not containing any bodies.
    */
   case class Empty(centerX : Float,
                    centerY : Float,
                    size    : Float) extends Quad {
+
     /**
      * Since there is no internal bodies its center of mass
      * is considered to be same as its center.
@@ -61,20 +64,23 @@ package object barneshut {
     def total: Int   = 0
 
     /**
-     * Inserting into an Empty Quad tree node
-     * will cause it to change into a Leaf.
+     * Inserting into an Empty Quad tree node will cause it to change
+     * into a Leaf.
      */
-    def insert(b: Body): Quad = new Leaf(centerX,centerY,size,List(b))
+    def insert(b: Body): Quad =
+      new Leaf(centerX, centerY, size, List(b))
+
   }
-  
+
   /**
-   * Fork 
+   * Fork
    */
-  case class Fork(nw: Quad, 
-                  ne: Quad, 
-                  sw: Quad, 
+  case class Fork(nw: Quad,
+                  ne: Quad,
+                  sw: Quad,
                   se: Quad) extends Quad {
 
+    // Fork center is quarter away from the center(x,y)
     val centerX: Float = nw.centerX + ( nw.size / 2)
     val centerY: Float = nw.centerY + ( nw.size / 2)
     val size:    Float = nw.size * 2 // assuming dqual size of all four quads
@@ -83,17 +89,24 @@ package object barneshut {
     val massY:   Float = ((nw.mass * nw.massY) + (ne.mass * ne.massY) + (sw.mass * sw.massY) + (se.mass * se.massY)) / mass
     val total:   Int   = nw.total + ne.total + sw.total + se.total
 
+    println(s"Fork with center ${centerX},${centerY}, size : ${size}, mass: ${mass},  ")
+
     /**
      * Inserting into a fork is a recursive process.
      */
-    def insert(b: Body): Fork = {      
+    def insert(b: Body): Fork = {
       (b.x,b.y)  match {
-        case (x, y) if (x <= centerX && y <= centerY) => new Fork(nw.insert(b),ne,sw,se)
-        case (x, y) if (x >  centerX && y <= centerY) => new Fork(nw,ne.insert(b),sw,se)
-        case (x, y) if (x <= centerX && y >  centerY) => new Fork(nw,ne,sw.insert(b),se)
-        case (x, y) if (x >  centerX && y >  centerY) => new Fork(nw,ne,sw,se.insert(b))
+        case (x, y) if (x <= centerX && y <= centerY) =>
+          new Fork( nw.insert(b), ne, sw, se)
+        case (x, y) if (x >  centerX && y <= centerY) =>
+          new Fork( nw, ne.insert(b),  sw, se)
+        case (x, y) if (x <= centerX && y >  centerY) =>
+          new Fork(nw, ne, sw.insert(b),  se)
+        case (x, y) if (x >  centerX && y >  centerY) =>
+          new Fork(nw, ne, sw, se.insert(b))
       }
     }
+
   }
 
   /**
@@ -107,12 +120,13 @@ package object barneshut {
    * enough additional inserts will certainly cause
    * the leaf to turn into a fork on the
    * second insert.
-   *
    */
-  case class Leaf(centerX: Float, centerY: Float,
-                  size: Float, bodies: Seq[Body]) extends Quad {
+  case class Leaf(centerX: Float,
+                  centerY: Float,
+                  size: Float,
+                  bodies: Seq[Body]) extends Quad {
 
-    // total-mass of all bodies.
+    // Total-mass of all bodies.
     def totalMass(bodies:Seq[Body]):Float =
       bodies.map(_.mass).sum
 
@@ -124,6 +138,7 @@ package object barneshut {
      * represent the inertial centers of respective bodies.
      */
     val mass = totalMass(bodies)
+
     val ( massX, massY) = (
       // m_x - inertial mass along the x coordinate
       dot(bodies.map(_.mass), bodies.map(_.x)) / mass,
@@ -139,46 +154,82 @@ package object barneshut {
      */
     def insert(body: Body): Quad = {
       // split leaf
-      if( size >= minimumSize ) {
+      if( size > minimumSize ) {
 
-        val delta   = size / 4
-        val quadLen = size / 2
+        val delta   = ( size / 4.0f)
+        val quadLen = ( size / 2.0f)
 
-        // [fork]-Map: To a particular sector: { nw-0, ne-1, se-2 , sw-3 }
-        def sector(b: Body): Int = {
-          (b.x,b.y) match {
+        def classify(x:Float, y:Float) : Int = {
+          (x,y) match {
             case (x,y) if (x <= centerX && y <= centerY) => 0 // NW
-            case (x,y) if (x >  centerX && y <= centerY) => 1 // NE
-            case (x,y) if (x <= centerX && y >  centerY) => 2 // SE
+            case (x,y) if (x >  centerX && y <  centerY) => 1 // NE
+            case (x,y) if (x <  centerX && y >  centerY) => 2 // SE
             case (x,y) if (x >  centerX && y >  centerY) => 3 // SW
           }
+        }
+
+        // [fork]-map: to a particular sector: { nw-0, ne-1, se-2 , sw-3 }
+        def sector(b: Body): Int = {
+          classify(b.x,b.y)
         }
 
         // partition the objects into (one of four) coordinates spaces.
         // compute where in the partitioned space the body will lie
         // {nw-0, ne-1, se-2 , sw-3}
+        //println("bodies : " + (body::bodies.toList))
+        //println("sectors : "+ (body::bodies.toList).map(sector))
+
         val groupMap : Map[Int, Seq[Body]] = (body::bodies.toList).groupBy(sector)
 
+        // Maybe its a good idea to use the group map here directly.
+
         // Create list of bodies sorted by sector in order {nw, ne, se, sw}
-        val groups = groupMap.toList.sortBy(_._1).map({case (sec, bodies) => bodies})
+        val groups =
+          groupMap.toList.sortBy(_._1).map({ case (sec, bodies) => bodies })
 
         // [Maybe better way] : (-,-):0,(+,-):1,(-,+):2,(+,+):3
         // Construct deltas from current center to center of the four new quads.
+
         val deltas  =
           for(i <- List(-1,1);
-              j <- List(-1,1)) yield (j * delta, i * delta)
+              j <- List(-1,1))
+          yield (j * delta, i * delta)
 
-        val centers = deltas.map(d => (centerX + d._1 ,centerY + d._2))
-        val centerGroups = (centers, groups).zipped
+        // compute centers of the split quadilaterals
+        val centers = deltas.map(d => (centerX + d._1, centerY + d._2 ))
+
+        // q: How are empty groups getting dealt with ?
+        //
+        /**
+         * Q: What needs to happen here is that each center needs
+         *    to be mapped to the center which will support it ?
+         *
+         * Q:
+         *
+         */
+
+        val centerGroups = centers.map( c =>
+          (c, groupMap.getOrElse( classify(c._1,c._2), List[Body]())))
+
+
+        //val centerGroups = (centers, groups).zipped
+        //println("Groups :" + centerGroups.toList)
 
         val nodes =
           centerGroups.map(
-            { case (c,g) if g.isEmpty =>  new Empty(c._1, c._2, quadLen)
-              case (c,g) => new Leaf(c._1,c._2, quadLen, g)
+            { case (c,g) if g.isEmpty =>  new Empty(c._1, c._2, quadLen) // Each will be (1/2*1/2) original size
+              case (c,g) =>               new Leaf (c._1, c._2, quadLen, g)
             })
-        new Fork(nodes(0), nodes(1), nodes(2), nodes(3))
+
+        // Something wrong with the insertions getting index out of bounds
+        // I just assumed the nodes will always be populated but this may
+        // not be the case.
+
+        return new Fork(nodes(0), nodes(1), nodes(2), nodes(3))
       } else {
-        new Leaf(centerX,centerY,size,body::bodies.toList)
+        val newBodyList = body :: (bodies.toList)
+        //println(s"adding ${body} to ${bodies} = ${newBodyList}")
+        return new Leaf(centerX, centerY, size, newBodyList)
       }
     }
   }
@@ -194,11 +245,11 @@ package object barneshut {
   def eliminationThreshold = 0.5f
 
   /**
-   * Compute the gravitational force between two bodies. 
+   * Compute the gravitational force between two bodies.
    */
   def force(m1: Float, m2: Float, dist: Float): Float =
     gee * m1 * m2 / (dist * dist)
-  
+
   /**
    * Euclidean distance between (x0,y0) and (x1,y1)
    */
@@ -211,6 +262,11 @@ package object barneshut {
              val y: Float,
              val xspeed: Float,
              val yspeed: Float) {
+
+
+    override def toString: String  = {
+      return s"[Mass:${mass} Position:(${x},${y}) Speed:(${xspeed},${yspeed})]"
+    }
 
     /**
      * Compute the updated position of the body based on traversing
@@ -226,30 +282,30 @@ package object barneshut {
        * Compute the force exerted by a particular mass and add it to
        * the netforce being computed.
        */
-      def addForce(thatMass: Float, 
+      def addForce(thatMass: Float,
                    thatMassX: Float, thatMassY: Float): Unit = {
 
         // euclidiean distance between the masses.
         val dist = distance(thatMassX, thatMassY, x, y)
 
         /**
-         * 
+         *
          * If the distance is smaller than 1f, we enter the realm of close
          * body interactions. Since we do not model them in this simplistic
          * implementation, bodies at extreme proximities get a huge acceleration,
          * and are catapulted from each other's gravitational pull at extreme
          * velocities (something like this:
-         * 
+         *
          * http://en.wikipedia.org/wiki/Interplanetary_spaceflight#Gravitational_slingshot).
          *
          * To decrease the effect of this gravitational slingshot, as a very
          * simple approximation, we ignore gravity at extreme proximities.
          */
-        if (dist > 1f) { 
+        if (dist > 1f) {
 
           // Net force on this body exerted by that mass.
           val dforce = force(mass, thatMass, dist)
-          
+
           // Direction of the force
           val xn = (thatMassX - x) / dist
           val yn = (thatMassY - y) / dist
@@ -267,12 +323,12 @@ package object barneshut {
       }
 
       /**
-       * Traverse the quad tree using summarizing masses for
-       * far away bodies.
+       * Traverse the quad tree using summarizing
+       * masses for far away bodies.
        */
-      def traverse(quad: Quad): Unit = (quad: Quad) match {          
-        case Empty(_, _, _) =>          
-        // no body, no force        
+      def traverse(quad: Quad): Unit = (quad: Quad) match {
+        case Empty(_, _, _) =>
+        // no body, no force
         case Leaf(_, _, _, bodies) =>
           // add force contribution of each body by calling addForce
           val dist = distance(quad.massX, quad.massY, x, y)
@@ -283,7 +339,7 @@ package object barneshut {
           }
 
 
-        case Fork(nw, ne, sw, se) =>           
+        case Fork(nw, ne, sw, se) =>
           // Determine whether we need to use a threshold.
           val dist = distance(quad.massX, quad.massY, x, y)
           if(quad.size / dist < theta) { // dont recurse if too far
@@ -292,11 +348,11 @@ package object barneshut {
             List(nw,ne,sw,se).map(traverse)
           }
       }
-      
+
       traverse(quad)
 
       // Use old speed to compute new poistion of the body
-      // delta represents the fractional time interval 
+      // delta represents the fractional time interval
       val nx = x + xspeed * delta
       val ny = y + yspeed * delta
 
@@ -332,22 +388,24 @@ package object barneshut {
                      val sectorPrecision: Int) {
 
     val sectorSize = boundaries.size / sectorPrecision
-    val matrix = new Array[ConcBuffer[Body]](sectorPrecision * sectorPrecision)
+    val matrix = new Array[ConcBuffer[Body]](sectorPrecision*sectorPrecision)
     for (i <- 0 until matrix.length) matrix(i) = new ConcBuffer
-
 
     /**
      * Used to add a body to SectorMatrix :
      *
      * 1. Compute the appropriate cell in which to add the body.
      * 2. Use the underlying ConcBuffer[Body] to add the object.
-     * 3. 
+     * 3.
      */
     def +=(b: Body) : SectorMatrix = {
       /**
        * size - Length of each sector.
        */
-      def sector(x: Float, min: Float, max: Float, size: Float = sectorSize): Int = {
+      def sector(x:    Float,
+                 min:  Float,
+                 max:  Float,
+                 size: Float = sectorSize): Int = {
         // Round x to min or max if it exceeds either one of them.
         val v =
           if(x < min) min
