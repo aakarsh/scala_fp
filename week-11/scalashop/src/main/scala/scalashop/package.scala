@@ -1,10 +1,13 @@
 
 import common._
+import scala.language.implicitConversions
 
 package object scalashop {
 
   /** The value of every pixel is represented as a 32 bit integer. */
   type RGBA = Int
+
+  type Channels = Vector[Int]
 
   /** Returns the red component. */
   def red(c: RGBA): Int = (0xff000000 & c) >>> 24
@@ -29,62 +32,75 @@ package object scalashop {
     else if (v > max) max
     else v
   }
+  
+  // Convert pixel to individual channelss
+  implicit def pixel2Channels(p: RGBA): Channels =
+    Vector(red(p),green(p), blue(p), alpha(p))
+
+    // Values for each channel channel between [0..255]
+  implicit def channel2Pixel(channels: Channels): RGBA = {      
+    val cv = channels.map(clamp(_,0,255))
+    rgba(cv(0), cv(1), cv(2), cv(3))
+  }
 
   /** Image is a two-dimensional matrix of pixel values. */
   class Img(val width: Int, val height: Int, private val data: Array[RGBA]) {
+
     def this(w: Int, h: Int) = this(w, h, new Array(w * h))
     def apply(x: Int, y: Int): RGBA = data(y * width + x)
     def update(x: Int, y: Int, c: RGBA): Unit = data(y * width + x) = c
 
-    def toHexTable = {
+    def verticalStrips(n:Int) : Seq[(Int,Int)] = {
+      val stripSize: Int = (width / n).toInt
+      val stripBorders   = ((0         until width by stripSize),
+                            (stripSize until width by stripSize)).zipped
+      stripBorders.toSeq
+    }
+
+    def horizontalStrips(n:Int) : Seq[(Int,Int)] = {
+      val stripSize:Int = (height / n).toInt
+      val stripBorders  = ((0         until height by stripSize),
+                          (stripSize until height by stripSize)).zipped
+      stripBorders.toSeq
+    }
+
+    // All neighbouring cells of an image position
+    def neighbours(x:Int, y:Int, radius:Int) : Seq[RGBA] = {
+      for(i  <- (x - radius) to (x + radius) if i >= 0 && i < width;
+          j  <- (y - radius) to (y + radius) if j >= 0 && j < height) 
+      yield this(i,j)
+    }
+
+    def toHexTable = 
       for(j <- 0 until height)
        yield
          for(i <- 0 until width)
           yield "Ox%08X".format(apply(i,j))
-    }
 
-    def printTable():Unit = {
-      this.toHexTable.foreach(row => println(row.reduce(_+" "+_)))
-    }
+    def printTable() : Unit = 
+      this.toHexTable.foreach( row => println(row.reduce( _ + " " + _ )))
+
   }
 
   /** Computes the blurred RGBA value of a single pixel of the input image. */
   def boxBlurKernel(src: Img, x: Int, y: Int, radius: Int): RGBA = {
-    // TODO implement using while loops
-    def toChannels(p: RGBA): Vector[Int] =
-      Vector(red(p),green(p), blue(p), alpha(p))
 
-    def toPixel(l:Vector[Int]): RGBA = {
-      val channelValues = l.map(clamp(_,0,255))
-      rgba(channelValues(0),
-           channelValues(1),
-           channelValues(2),
-           channelValues(3))
-    }
-
-    val neighbourChannels =
-      for(i  <- (x - radius) to (x + radius) if i >= 0 && i < src.width;
-          j  <- (y - radius) to (y + radius) if j >= 0 && j < src.height) yield {
-        
-        val r = clamp(i,0, src.width -1)
-        val c = clamp(j,0, src.height-1)
-
-        // get the pixel
-        val pixel = src(r,c)
-        // decompose into a .list.of.channels.
-        toChannels(pixel)
-      }
-      
     def listSum(lls: Seq[Seq[Int]]) : Vector[Int] =
-      lls.reduce((ls,acc) => (ls, acc).zipped.map(_ + _)).toVector
+      lls.reduce( (ls,acc) => (ls, acc).zipped.map(_ + _) ).toVector
+
+    // All channels within radius distance from (x,y) square
+    // which also lie inside the image
+    val neighbourChannels: Seq[Channels] = 
+      src.neighbours(x, y, radius).map(pixel2Channels)
+
+    // collect total value of channels 
+    val channelTotal : Channels = listSum(neighbourChannels)
+    val numChannels  = neighbourChannels.size
     
-    val channelTotal : Vector[Int] = listSum(neighbourChannels)
-    val area  = neighbourChannels.size
-    
-    val averageChannelValeus:Vector[Int] =
-      channelTotal.map( total => (total/area).toInt)
-    
-    toPixel(averageChannelValeus)
+    val averageChannelValues:Channels =
+      channelTotal.map( _ / numChannels).map(_.toInt)
+
+    averageChannelValues
   }
 
 }

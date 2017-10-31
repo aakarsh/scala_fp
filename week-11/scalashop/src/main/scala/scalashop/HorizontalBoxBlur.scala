@@ -52,11 +52,9 @@ object HorizontalBoxBlur {
    * left to right.
    */
   def blur(src: Img, dst: Img, from: Int, end: Int, radius: Int): Unit =
-  {
     for (x <- 0 until src.width ;          // left to right
          y <- from until end)   // left  to right
       dst(x, y) = boxBlurKernel(src, x, y, radius)
-  }
 
   /**
    * Blurs the rows of the source image in parallel using
@@ -67,17 +65,15 @@ object HorizontalBoxBlur {
    * number of rows.
    */
   def parBlur(src: Img, dst: Img, numTasks: Int, radius: Int): Unit =
-  {
-    // height
-    val stripSize: Int = (src.height / numTasks).toInt
+  {    
+    def toBlurTask(region: (Int,Int)): ForkJoinTask[Unit] =  
+      region match { case (start, end) => task(blur(src, dst, start, end, radius)) }
+
     // Pair of strip borders of length numTasks, each of width stripSize 
-    val borders = ((0         until src.height by stripSize),
-                   (stripSize until src.height by stripSize)).zipped
-    def toBlurTask(start:Int,end:Int): ForkJoinTask[Unit] =  
-      task(blur(src,dst,start,end,radius))
-    
+    val stripBorders = src.horizontalStrips(numTasks)
+
     // Invoke task constructs in parallel and wait for them to finish.
-    borders.map(toBlurTask).map(_.join)
+    stripBorders.map(toBlurTask).map(_.join)
   }
 
 }
