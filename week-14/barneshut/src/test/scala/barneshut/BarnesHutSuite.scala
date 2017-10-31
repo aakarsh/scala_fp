@@ -41,7 +41,7 @@ import FloatOps._
 
     var i = 0
     for (body <- bodies) {
-      println("insert body :" + body)
+      println("Insert Body :" + body)
       // Failed after second insert
       tree = tree.insert(body)
       println(s"tree-$i : ${tree}")

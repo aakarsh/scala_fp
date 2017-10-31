@@ -182,11 +182,6 @@ package object barneshut {
         val groupMap : Map[Int, Seq[Body]] = (body::bodies.toList).groupBy(sector)
 
         // Maybe its a good idea to use the group map here directly.
-
-        // Create list of bodies sorted by sector in order {nw, ne, se, sw}
-        val groups =
-          groupMap.toList.sortBy(_._1).map({ case (sec, bodies) => bodies })
-
         // [Maybe better way] : (-,-):0,(+,-):1,(-,+):2,(+,+):3
         // Construct deltas from current center to center of the four new quads.
 
@@ -198,38 +193,19 @@ package object barneshut {
         // compute centers of the split quadilaterals
         val centers = deltas.map(d => (centerX + d._1, centerY + d._2 ))
 
-        // q: How are empty groups getting dealt with ?
-        //
-        /**
-         * Q: What needs to happen here is that each center needs
-         *    to be mapped to the center which will support it ?
-         *
-         * Q:
-         *
-         */
-
         val centerGroups = centers.map( c =>
-          (c, groupMap.getOrElse( classify(c._1,c._2), List[Body]())))
+          (c, groupMap.getOrElse(classify(c._1,c._2), List[Body]())))
 
-
-        //val centerGroups = (centers, groups).zipped
-        //println("Groups :" + centerGroups.toList)
 
         val nodes =
           centerGroups.map(
-            { case (c,g) if g.isEmpty =>  new Empty(c._1, c._2, quadLen) // Each will be (1/2*1/2) original size
+            { case (c,g) if g.isEmpty =>  new Empty(c._1, c._2, quadLen) // Each will be (1/2 * 1/2) Original Size.
               case (c,g) =>               new Leaf (c._1, c._2, quadLen, g)
             })
 
-        // Something wrong with the insertions getting index out of bounds
-        // I just assumed the nodes will always be populated but this may
-        // not be the case.
-
         return new Fork(nodes(0), nodes(1), nodes(2), nodes(3))
       } else {
-        val newBodyList = body :: (bodies.toList)
-        //println(s"adding ${body} to ${bodies} = ${newBodyList}")
-        return new Leaf(centerX, centerY, size, newBodyList)
+        return new Leaf(centerX, centerY, size, body :: (bodies.toList))
       }
     }
   }
