@@ -2,6 +2,7 @@ package scalashop
 
 import org.scalameter._
 import common._
+import java.util.concurrent.ForkJoinTask
 
 object HorizontalBoxBlurRunner {
 
@@ -34,6 +35,7 @@ object HorizontalBoxBlurRunner {
     println(s"fork/join blur time: $partime ms")
     println(s"speedup: ${seqtime / partime}")
   }
+
 }
 
 /**
@@ -46,19 +48,14 @@ object HorizontalBoxBlur {
    * image `dst`, starting with `from` and ending with `end`
    * (non-inclusive).
    *
-   * Within each row, `blur` traverses the pixels by going from left
-   * to right.
+   * Within each row, `blur` traverses the pixels by going from
+   * left to right.
    */
-  def blur(src: Img, 
-           dst: Img, 
-           from: Int, 
-           end: Int, 
-           radius: Int): Unit =
+  def blur(src: Img, dst: Img, from: Int, end: Int, radius: Int): Unit =
   {
-    // TODO : implement this method using the `boxBlurKernel` method
-
-    
-    ???
+    for (x <- 0 until src.width ;          // left to right
+         y <- from until end)   // left  to right
+      dst(x, y) = boxBlurKernel(src, x, y, radius)
   }
 
   /**
@@ -68,12 +65,19 @@ object HorizontalBoxBlur {
    * Parallelization is done by stripping the source image `src` into
    * `numTasks` separate strips, where each strip is composed of some
    * number of rows.
-   *
    */
   def parBlur(src: Img, dst: Img, numTasks: Int, radius: Int): Unit =
   {
-    // TODO: implement using the `task` construct and the `blur` method
-    ???
+    // height
+    val stripSize: Int = (src.height / numTasks).toInt
+    // Pair of strip borders of length numTasks, each of width stripSize 
+    val borders = ((0         until src.height by stripSize),
+                   (stripSize until src.height by stripSize)).zipped
+    def toBlurTask(start:Int,end:Int): ForkJoinTask[Unit] =  
+      task(blur(src,dst,start,end,radius))
+    
+    // Invoke task constructs in parallel and wait for them to finish.
+    borders.map(toBlurTask).map(_.join)
   }
 
 }

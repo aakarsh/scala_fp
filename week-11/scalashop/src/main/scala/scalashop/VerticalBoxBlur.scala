@@ -23,7 +23,6 @@ object VerticalBoxBlurRunner {
       VerticalBoxBlur.blur(src, dst, 0, width, radius)
     }
     println(s"sequential blur time: $seqtime ms")
-
     val numTasks = 32
     val partime = standardConfig measure {
       VerticalBoxBlur.parBlur(src, dst, numTasks, radius)
@@ -45,46 +44,40 @@ object VerticalBoxBlur {
    * bottom.
    */
   def blur(src: Img, dst: Img, from: Int, end: Int, radius: Int): Unit = {
-
-    val stripSize = end - from
-
-    def toChannels(p: RGBA): Vector[Int] =
-      Vector(red(p),green(p), blue(p), alpha(p))
-
-    def toPixel(l:Vector[Int]): RGBA = {
-      val channelValues = l.map(clamp(_,0,255))
-
-      rgba(channelValues(0),
-           channelValues(1),
-           channelValues(2),
-           channelValues(3))
-    }
-
+    //println("Entry:VerticalBoxBlur")
     for (x <- from until end;          // left to right
-         y <- 0    until src.height) { // top  to bottom
-      dst(x, y) = boxBlurKernel(src,x,y,radius)
+         y <- 0    until src.height)   // top  to bottom 
+    {
+      //println("boxBlurKernel("+x+","+y+")")
+      dst(x, y) = boxBlurKernel(src, x, y, radius)
     }
+    //println("Exit:VerticalBoxBlur")
   }
 
   /**
-   * Blurs the columns of the source image in parallel using `numTasks` tasks.
-   * Parallelization is done by stripping the source image `src` into
-   * `numTasks` separate strips, where each strip is composed of some
-   * number of columns.
+   * Blurs the columns of the source image in parallel using
+   * `numTasks` tasks.  Parallelization is done by stripping the
+   * source image `src` into `numTasks` separate strips, where each
+   * strip is composed of some number of columns.
    */
   def parBlur(src: Img, dst: Img, numTasks: Int, radius: Int): Unit = {
 
     val stripSize: Int = (src.width / numTasks).toInt
-
-    // Pair of strip borders of length numTasks, each of width stripSize 
-    val borders = ((0 until src.width by stripSize),
+    // 
+    // Pair of strip borders of length numTasks, each of width - stripSize 
+    //
+    val borders = ((0         until src.width by stripSize),
                    (stripSize until src.width by stripSize)).zipped
 
+    // print-src
+    println("src : " + src.width + " x " + src.height)
+    println(borders)
+    
+    def toBlurTask(start:Int,end:Int): ForkJoinTask[Unit] =  
+      task(blur(src,dst,start,end,radius))
+
     // Invoke task constructs in parallel and wait for them to finish.
-    borders.map(
-      { 
-        case (start,end) => task(blur(src,dst,start,end,radius)) // Fork of threads here for each vertical strip.
-      }).map(_.join)
+    borders.map(toBlurTask).map(_.join)
 
   }
 
