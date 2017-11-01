@@ -47,10 +47,25 @@ object VerticalBoxBlur {
    * Within each column, `blur` traverses the pixels by going from top to
    * bottom.
    */
-  def blur(src: Img, dst: Img, from: Int, end: Int, radius: Int): Unit =
-    for (x <- from until end;          // left to right
-         y <- 0    until src.height)   // top  to bottom
-    dst(x, y) = boxBlurKernel(src, x, y, radius)
+  def blur(src: Img, dst: Img, from: Int, end: Int, radius: Int): Unit = {
+    var i = 0 
+    var j = 0 
+
+    try{
+
+      for (x <- from until end;         // left to right
+           y <- 0    until src.height){   // top  to bottom
+        dst(x, y) = boxBlurKernel(src, x, y, radius)
+
+        i = x 
+        j = y
+
+      }
+    } catch {
+      case e:ArrayIndexOutOfBoundsException => 
+        throw e
+    }
+  }
 
 
   /**
@@ -60,18 +75,17 @@ object VerticalBoxBlur {
    * strip is composed of some number of columns.
    */
   def parBlur(src: Img, dst: Img, numTasks: Int, radius: Int): Unit = {
-    //
-    def toBlurTask(region:(Int, Int)): ForkJoinTask[Unit] =
+
+    def toBlurTask(region: (Int, Int)): ForkJoinTask[Unit] =
       region match {
-        case (start, end) =>
-          task(blur(src, dst, start, end, radius))
+        case (start, end) => task(blur(src, dst, start, end, radius))
       }
-    //
-    // Pair of strip borders of length numTasks, each of width - stripSize
+
+    // pair of strip borders of length numTasks, each of width - stripSize
     val borders = src.verticalStrips(numTasks)
 
     // Invoke task constructs in parallel and wait for them to finish.
-    // println("Created borders now map to threads")
     borders.map(toBlurTask).map(_.join)
   }
+
 }

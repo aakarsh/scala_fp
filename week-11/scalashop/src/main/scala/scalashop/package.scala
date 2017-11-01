@@ -45,26 +45,36 @@ package object scalashop {
 
   /** Image is a two-dimensional matrix of pixel values. */
   class Img(val width: Int, val height: Int, private val data: Array[RGBA]) {
-
+    //var accessCount = new Array[Int]( width * height)
     def this(w: Int, h: Int) = this(w, h, new Array(w * h))
     def apply(x: Int, y: Int): RGBA = data(y * width + x)
-    def update(x: Int, y: Int, c: RGBA): Unit = data(y * width + x) = c
 
+    //def getAccessCount(x:Int, y:Int) :Int = accessCount(y* width+ x)
+
+    def update(x: Int, y: Int, c: RGBA): Unit = {
+      data(y * width + x) = c
+      //accessCount(y*width+x) += 1
+    }
+    /**
+     * These strips go (up down), along the width.
+     */
     def verticalStrips(n:Int) : Seq[(Int,Int)] = {
-      val stripSize: Int = (width / n).toInt
+      val stripSize: Int = clamp((width / n).toInt, 1, width)
       val stripBorders   = ((0         until width by stripSize),
-                            (stripSize until width by stripSize)).zipped
-      stripBorders.toSeq
+                            (stripSize to    width by stripSize)).zipped
+      stripBorders.toList
     }
-
+    /**
+     * These stips go (left right) along the height
+     */
     def horizontalStrips(n:Int) : Seq[(Int,Int)] = {
-      val stripSize:Int = (height / n).toInt
-      val stripBorders  = ((0         until height by stripSize),
-                          (stripSize until height by stripSize)).zipped
-      stripBorders.toSeq
+      val stripSize: Int = clamp((height / n).toInt,1, height)
+      val stripBorders   = ((0         until height by stripSize),
+                            (stripSize  to   height by stripSize)).zipped 
+      stripBorders.toList
     }
 
-    // All neighbouring cells of an image position
+    // All neighbouring cells of an image position.
     def neighbours(x:Int, y:Int, radius:Int) : Seq[RGBA] = {
       for(i  <- (x - radius) to (x + radius) if i >= 0 && i < width;
           j  <- (y - radius) to (y + radius) if j >= 0 && j < height) 
@@ -78,21 +88,21 @@ package object scalashop {
           yield "Ox%08X".format(apply(i,j))
 
     def printTable() : Unit = 
-      this.toHexTable.foreach( row => println(row.reduce( _ + " " + _ )))
-
+      this.toHexTable.foreach( row => println( row.reduce( _ + " " + _ ) ))
+    
   }
 
   /** Computes the blurred RGBA value of a single pixel of the input image. */
   def boxBlurKernel(src: Img, x: Int, y: Int, radius: Int): RGBA = {
-
+    
     def listSum(lls: Seq[Seq[Int]]) : Vector[Int] =
-      lls.reduce( (ls,acc) => (ls, acc).zipped.map(_ + _) ).toVector
-
-    // All channels within radius distance from (x,y) square
-    // which also lie inside the image
+      lls.foldLeft(Vector(0,0,0,0))( (ls,acc) => (ls, acc).zipped.map(_ + _) ).toVector
+    
+    // all channels within radius distance from (x,y) square
+    // which also lie inside the image.
     val neighbourChannels: Seq[Channels] = 
       src.neighbours(x, y, radius).map(pixel2Channels)
-
+    
     // collect total value of channels 
     val channelTotal : Channels = listSum(neighbourChannels)
     val numChannels  = neighbourChannels.size
