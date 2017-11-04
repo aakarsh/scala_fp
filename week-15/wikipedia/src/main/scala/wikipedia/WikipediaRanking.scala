@@ -5,22 +5,32 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 
 import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.PairRDDFunctions
 
 /**
  * WikipediaArticle contains the title and the text of the article.
  */
 case class WikipediaArticle(title: String, text: String) {
 
+  type Language = String
+  type LanguageArticlePair = (String, WikipediaArticle)
+
   /**
    * @return whether the text of this article mentions `lang` or not
    * @param lang language to look for (e.g. "Scala")
    */
-  def mentionsLanguage(lang: String): Boolean =
+  def mentionsLanguage(lang: Language): Boolean =
     text.split(' ').contains(lang)
+
+  def mentioningPair(languages: Seq[Language]) : Seq[LanguageArticlePair] =
+    languages.filter(mentionsLanguage).map((language:String) => (language,this))
 
 }
 
 object WikipediaRanking {
+
+  type Language = String
+  type LanguageArticlePair = (String, WikipediaArticle)
 
   val langs = List(
     "JavaScript", "Java", "PHP", "Python", "C#", "C++", "Ruby", "CSS",
@@ -56,7 +66,7 @@ object WikipediaRanking {
    *  Hint1: Consider using method `aggregate` on RDD[T].
    *  Hint2: Consider using method `mentionsLanguage` on `WikipediaArticle`.
    */
-  def occurrencesOfLang(lang: String, rdd: RDD[WikipediaArticle]): Int = {
+  def occurrencesOfLang(lang: Language, rdd: RDD[WikipediaArticle]): Int = {
     rdd.persist()
 
     def fold(acc:Int , article: WikipediaArticle): Int =
@@ -80,10 +90,10 @@ object WikipediaRanking {
    * Note: this operation is long-running. It can potentially run for
    * several seconds.
    */
-  def rankLangs(langs: List[String],
-                rdd  : RDD[WikipediaArticle]): List[(String, Int)] = {
+  def rankLangs(langs: List[Language],
+                rdd  : RDD[WikipediaArticle]): List[(Language, Int)] = {
 
-    val langWithCounts: List[(String, Int)] =
+    val langWithCounts: List[(Language, Int)] =
       langs.map(lang => (lang, occurrencesOfLang(lang,rdd)))
 
     // Sort by frequency of occurence in descending order.
@@ -108,7 +118,7 @@ object WikipediaRanking {
    *   they occur at least once.
    *
    * - Implement method 'makeIndex' which returns an 'RDD' of the
-   *   following type: 'RDD[ (String, Iterable[WikipediaArticle]) ]'
+   *   following type: 'RDD[ (Language, Iterable[WikipediaArticle]) ]'
    *
    *   This RDD contains pairs, such that:
    *
@@ -119,59 +129,16 @@ object WikipediaRanking {
    *   contains the WikipediaArticle that mention the language
    *   at least once.
    */
-  def makeIndex(langList: List[String],
-                articles: RDD[WikipediaArticle]) : RDD[ (String, Iterable[WikipediaArticle]) ] =  {
-
-    // Take the list of languages. Take list of articles
-    // For each language map the article to an language
-    //
-    val languages =  langList.toVector
-
-    //
-    // TODO need ot handle cases without the language mentioned.
-    //
-    // var empty = languages.map( (_, List[WikipediaArticle]()) )
-
-    val languageIndexMap = (languages, (0 until languages.size)).zipped.toMap
-
+  def makeIndex(languages: List[Language],
+                articles: RDD[WikipediaArticle]): RDD[(Language, Iterable[WikipediaArticle])] =  {
     /**
-     * Map article to (article,langauge) pair.
+     * Map article to (article,langauge) pair. Create (article, langauge)
+     * pairs for all articles.
      */
-    def makeArticleLanguagePairs( article : WikipediaArticle ):  List[(WikipediaArticle, String)] = {
-      val retval =
-        for( language <- languages if article.mentionsLanguage(language))
-          yield (article, language)
-      retval.toList
-    }
+    val articleLanguage: RDD[LanguageArticlePair] =
+      articles.flatMap(_.mentioningPair(languages)).persist()
 
-    // Create (article, langauge) : pairs for all articles.
-    val articleLanguage : RDD[( WikipediaArticle, String )] =
-      articles.flatMap(makeArticleLanguagePairs).persist()
-
-    def article2LanguagePartition(pair: (WikipediaArticle, String)) : Int =
-      pair match {
-        case (article: WikipediaArticle, language: String) =>
-          languageIndexMap(language)
-      }
-
-    val languageGroupings: RDD[(Int, Iterable[(WikipediaArticle, String)])] =
-      articleLanguage.groupBy( article2LanguagePartition(_) , languages.size )
-
-    def toLanguageArticleMap(retval: RDD[(Int, Iterable[(WikipediaArticle, String)])]) = {
-
-      def toArticles(articleLanguagePairs :Iterable[(WikipediaArticle, String)]) = {
-        articleLanguagePairs.map({ case (article,language) => article })
-      }
-
-      retval.map({
-        case (languageIndex:Int, articleLanguagePairs: Iterable[(WikipediaArticle,String)]) =>
-          (languages(languageIndex), toArticles(articleLanguagePairs))
-      })
-    }
-
-    // Convert to [ lang_1 => (articles, ... ) ,lang_2 => (articles, ... )
-    toLanguageArticleMap(languageGroupings)
-
+    new PairRDDFunctions(articleLanguage).groupByKey()
   }
 
   /**
@@ -182,16 +149,11 @@ object WikipediaRanking {
    *   several seconds.
    */
   def rankLangsUsingIndex(index: RDD [(String, Iterable[WikipediaArticle])]): List[(String ,Int)] = {
-
-    index.persist()
-
     val langCount =
       index.map({
-        case (language:String, articles:Iterable[WikipediaArticle]) => (language, articles.size)
+        case (language:Language, articles:Iterable[WikipediaArticle]) => (language, articles.size)
       })
-
     val ranking  = langCount.sortBy(_._2)
-
     ranking.collect().reverse.toList
   }
 
@@ -207,57 +169,17 @@ object WikipediaRanking {
    *  Note: this operation is long-running. It can potentially run for
    *  several seconds.
    */
-  def rankLangsReduceByKey(langList: List[String], 
-                           wikiRdd: RDD[WikipediaArticle]): List[(String, Int)] = {
-    
-    val langauges = langList.toVector
-    val empty
-    
-    /**
-     * Rank languages attempt #3: rankLangsReduceByKey
-     *
-     * In the case where the inverted index from above is only used
-     * for computing the ranking and for no other task (full-text
-     * search, say), it is more efficient to use the reduceByKey
-     * method to compute the ranking directly, without first-computing
-     * an inverted index.
-     *
-     * Note that the reduceByKey method is only defined for RDDs
-     * containing pairs (each pair is interpreted as a key-value
-     * pair).
-     *
-     * Implement the rankLangsReduceByKey method,
-     * this time computing the ranking without the inverted index,
-     * using reduceByKey.
-     *
-     * Like in part 1 and 2, rankLangsReduceByKey should compute a
-     * list of pairs where the second component of the pair is the
-     * number of articles that mention the language (the first
-     * component of the pair is the name of the language).
-     * 
-     * Again, the list should be sorted in descending order.
-     *
-     * That is, according to this ranking, the pair with the highest
-     * second component (the count) should be the first element of the
-     * list.
-     * 
-     * Can you notice an improvement in performance compared to
-     * measuring both the computation of the index and the computation
-     * of the ranking as we did in attempt #2?
-     *
-     * If so, can you think of a reason?
+  def rankLangsReduceByKey(languages: List[String],
+                           articles: RDD[WikipediaArticle]): List[(String, Int)] = {
 
-     */
-    /**
-     * def index: RDD[(String, Iterable[WikipediaArticle])] =
-     * makeIndex(langs, wikiRdd)
-     *
-     * //  Languages ranked according to (2), using the inverted index.
-     * val langsRanked2: List[(String, Int)] =
-     *     timed("Part 2: ranking using inverted index", rankLangsUsingIndex(index))
-     */
+    // Pair RDD article with language it contains.
+    val articleLanguage: RDD[LanguageArticlePair] =
+      articles.flatMap(_.mentioningPair(languages)).persist()
 
-    ???
+    // First map all languages to single element lists.
+    val retval = new PairRDDFunctions(articleLanguage).countByKey().toList.map(element => (element._1, element._2.toInt))
+
+    retval.sortBy(_._2).reverse
   }
 
   def main(args: Array[String]) {
