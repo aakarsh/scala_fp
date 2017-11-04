@@ -23,7 +23,8 @@ class WikipediaSuite extends FunSuite with BeforeAndAfterAll {
     }
 
   override def afterAll(): Unit = {
-    assert(initializeWikipediaRanking(), " -- did you fill in all the values in WikipediaRanking (conf, sc, wikiRdd)?")
+    assert(initializeWikipediaRanking(), 
+           " -- did you fill in all the values in WikipediaRanking (conf, sc, wikiRdd)?")
     import WikipediaRanking._
     sc.stop()
   }
