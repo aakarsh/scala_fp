@@ -97,7 +97,7 @@ object WikipediaRanking {
       langs.map(lang => (lang, occurrencesOfLang(lang,rdd)))
 
     // Sort by frequency of occurence in descending order.
-    langWithCounts.sortBy(_._2).reverse
+    langWithCounts.sortBy(-1 * _._2)
   }
 
   /**
@@ -130,7 +130,7 @@ object WikipediaRanking {
    *   at least once.
    */
   def makeIndex(languages: List[Language],
-                articles: RDD[WikipediaArticle]): RDD[(Language, Iterable[WikipediaArticle])] =  {
+                articles: RDD[WikipediaArticle]): RDD[(Language, Iterable[WikipediaArticle])] = {
     /**
      * Map article to (article,langauge) pair. Create (article, langauge)
      * pairs for all articles.
@@ -139,6 +139,7 @@ object WikipediaRanking {
       articles.flatMap(_.mentioningPair(languages)).persist()
 
     new PairRDDFunctions(articleLanguage).groupByKey()
+
   }
 
   /**
@@ -149,12 +150,8 @@ object WikipediaRanking {
    *   several seconds.
    */
   def rankLangsUsingIndex(index: RDD [(String, Iterable[WikipediaArticle])]): List[(String ,Int)] = {
-    val langCount =
-      index.map({
-        case (language:Language, articles:Iterable[WikipediaArticle]) => (language, articles.size)
-      })
-    val ranking  = langCount.sortBy(_._2)
-    ranking.collect().reverse.toList
+    val rankedCounts = index.mapValues(_.size).sortBy( -1 * _._2) // decreasing order
+    rankedCounts.collect().toList
   }
 
   /**
@@ -170,16 +167,13 @@ object WikipediaRanking {
    *  several seconds.
    */
   def rankLangsReduceByKey(languages: List[String],
-                           articles: RDD[WikipediaArticle]): List[(String, Int)] = {
-
-    // Pair RDD article with language it contains.
+                           articles : RDD[WikipediaArticle]) : List[(String, Int)] = {
+    // pair_RDD article with language it contains
     val articleLanguage: RDD[LanguageArticlePair] =
       articles.flatMap(_.mentioningPair(languages)).persist()
-
-    // First map all languages to single element lists.
-    val retval = new PairRDDFunctions(articleLanguage).countByKey().toList.map(element => (element._1, element._2.toInt))
-
-    retval.sortBy(_._2).reverse
+    // first map all languages to single element lists
+    val retval = new PairRDDFunctions(articleLanguage).countByKey().mapValues(_.toInt).toList
+    retval.sortBy(-1 * _._2)
   }
 
   def main(args: Array[String]) {
